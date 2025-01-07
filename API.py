@@ -4,7 +4,7 @@ from flask import Flask, jsonify, request, make_response
 import flask_cors
 import DataCleaning
 import PredictionModel
-import datetime
+from datetime import datetime
 import pandas as pd
 import threading
 
@@ -43,21 +43,21 @@ def getTime():
   
 @app.route('/today/<int:hall>', methods = ['GET']) 
 def today(hall):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.datetime.now()),
-                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.datetime.now())}) 
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.now()),
+                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.now())}) 
 
 @app.route('/day/<int:hall>/dayOfMonth/<int:dayOfMonth>/month/<int:month>', methods = ['GET']) 
 def day(hall, dayOfMonth, month):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.datetime(datetime.datetime.now().year, month, dayOfMonth)),
-                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.datetime(datetime.datetime.now().year, month, dayOfMonth))}) 
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime(datetime.now().year, month, dayOfMonth)),
+                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime(datetime.now().year, month, dayOfMonth))}) 
   
 @app.route('/week/<int:hall>', methods = ['GET'])
 def week(hall):
     return jsonify({'Current Time': PredictionModel.getLabel(), 'Washing Machines': PredictionModel.GetWholeWeekPrediction(washerModel, hall),
                     "Dryers": PredictionModel.GetWholeWeekPrediction(dryerModel, hall)})
-@app.route('/optimumTime/<int:hall>/startDayOfMonth/<int:startDayOfMonth>/startMonth/<int:startMonth>/endDayOfMonth/<int:endDayOfMonth>/endMonth/<int:endMonth>/step/<int:step>', methods = ['GET']) 
-def optimumTime(hall, startDayOfMonth, startMonth, endDayOfMonth, endMonth, step):
-    return jsonify({"Optimum Time": PredictionModel.GetOptimumTime(washerModel, dryerModel, hall, datetime.datetime(datetime.datetime.now().year, startMonth, startDayOfMonth), datetime.datetime(datetime.datetime.now().year, endMonth, endDayOfMonth), step)})
+@app.route('/optimumTime/<int:hall>/startDay/<int:startDay>/endDay/<int:endDay>/step/<int:step>', methods = ['GET']) 
+def optimumTime(hall, startDay, endDay, step):
+    return jsonify({"Optimum Time": PredictionModel.GetOptimumTime(washerModel, dryerModel, hall, datetime.fromtimestamp(startDay / 1000.0), datetime.fromtimestamp(endDay / 1000.0), step)})
 @app.route('/contribute', methods = ['POST']) 
 def contribute():
     try:

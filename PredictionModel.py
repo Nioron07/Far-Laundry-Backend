@@ -14,7 +14,7 @@ dayOfWeekDict = {
 }
 
 def CreateModel(machineType: str):
-    df = pd.concat([pd.read_csv("Laundry Data Pro\\Laundry Data Pro\\backend\Data Files\\GoogleFormData.csv"), pd.read_csv("Laundry Data Pro\\Laundry Data Pro\\backend\\Data Files\\WebAppData.csv")], axis=0)
+    df = pd.concat([pd.read_csv("backend/Data Files/GoogleFormData.csv"), pd.read_csv("backend/Data Files/WebAppData.csv")], axis=0)
 
     #Assigns Independent and Dependent variables in the form of X and y
     X = df.drop(["How many Washing Machines are Available?", "How many Dryers are Available?"], axis = 1)
@@ -61,7 +61,7 @@ def GetOptimumTime(washers: RandomForestRegressor, dryers: RandomForestRegressor
     timeArr = []
     df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
     iterDate: datetime = startDay
-    while (iterDate < endDay):
+    while (iterDate <= endDay):
         df['What Hall?'] = [hall]
         df['Month'] = [iterDate.month]
         df['Weekday'] = [iterDate.weekday()]
