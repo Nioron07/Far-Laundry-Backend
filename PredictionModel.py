@@ -2,6 +2,7 @@ import datetime
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+import pytz
 
 dayOfWeekDict = {
     6: "Sunday",
@@ -108,9 +109,22 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
 
 def format_hour(hour):
     hour_int = int(hour)  # Ensure hour is an integer
-    period = "am" if hour_int < 12 else "pm"
+    period = "AM" if hour_int < 12 else "PM"
     hour_formatted = 12 if hour_int % 12 == 0 else hour_int % 12  # Convert to 12-hour format
-    return f"{hour_formatted}:00{period}".upper()
+    return f"{hour_formatted}:00{period}"
 
 def getLabel():
-    return f"{dayOfWeekDict[datetime.datetime.now().weekday()]} {format_hour(datetime.datetime.now().hour)}"
+    dayOfWeekDict = {
+        0: "Monday",
+        1: "Tuesday",
+        2: "Wednesday",
+        3: "Thursday",
+        4: "Friday",
+        5: "Saturday",
+        6: "Sunday"
+    }
+    tz = pytz.timezone("US/Central")
+    now_central = datetime.datetime.now(tz)
+    weekday_str = dayOfWeekDict[now_central.weekday()]
+    hour_str = format_hour(now_central.hour)
+    return f"{weekday_str} {hour_str}"
