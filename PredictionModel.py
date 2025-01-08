@@ -14,6 +14,7 @@ dayOfWeekDict = {
     5: "Saturday"
 }
 
+tz = pytz.timezone("US/Central")
 def CreateModel(machineType: str):
     df = pd.concat([pd.read_csv("./Data Files/GoogleFormData.csv"), pd.read_csv("./Data Files/WebAppData.csv")], axis=0)
 
@@ -30,7 +31,7 @@ def CreateModel(machineType: str):
     return dtr
 
 def GetCurrentPrediction(model: RandomForestRegressor, hall: str):
-    day = datetime.datetime.now()
+    day = datetime.datetime.now(tz)
     df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
     df['What Hall?'] = [hall]
     df['Month'] = [day.month]
@@ -82,7 +83,7 @@ def GetOptimumTimeDay(washers, dryers, df):
 
 def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
     predictions = {}
-    day = datetime.datetime.now()
+    day = datetime.datetime.now(tz)
     low = 100
     lowIndex = ""
     highIndex = ""
@@ -114,16 +115,6 @@ def format_hour(hour):
     return f"{hour_formatted}:00{period}"
 
 def getLabel():
-    dayOfWeekDict = {
-        0: "Monday",
-        1: "Tuesday",
-        2: "Wednesday",
-        3: "Thursday",
-        4: "Friday",
-        5: "Saturday",
-        6: "Sunday"
-    }
-    tz = pytz.timezone("US/Central")
     now_central = datetime.datetime.now(tz)
     weekday_str = dayOfWeekDict[now_central.weekday()]
     hour_str = format_hour(now_central.hour)
