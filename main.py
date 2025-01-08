@@ -7,9 +7,11 @@ import PredictionModel
 from datetime import datetime
 import pandas as pd
 import threading
+import pytz
 
 DataCleaning.UpdateDataFiles()
 
+tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
 def Retrain():
@@ -43,13 +45,13 @@ def getTime():
   
 @app.route('/today/<int:hall>', methods = ['GET']) 
 def today(hall):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.now()),
-                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.now())}) 
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.now(tz)),
+                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.now(tz))}) 
 
 @app.route('/day/<int:hall>/dayOfMonth/<int:dayOfMonth>/month/<int:month>', methods = ['GET']) 
 def day(hall, dayOfMonth, month):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime(datetime.now().year, month, dayOfMonth)),
-                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime(datetime.now().year, month, dayOfMonth))}) 
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime(datetime.now(tz).year, month, dayOfMonth)),
+                    "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime(datetime.now(tz).year, month, dayOfMonth))}) 
   
 @app.route('/week/<int:hall>', methods = ['GET'])
 def week(hall):
