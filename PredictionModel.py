@@ -44,7 +44,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     # Create an array of all hours
     hours = list(range(24))
     
-    # Create a DataFrame with 24 rows (one per hour)
+    # Create a DataFrame with 24 rows (one row per hour)
     data = {
         "What Hall?": [hall] * 24,
         "Month": [day.month] * 24,
@@ -55,19 +55,20 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
 
     # Predict all 24 hours in a single call
     raw_predictions = model.predict(df)
-    # Round predictions to integers
-    preds_rounded = np.rint(raw_predictions).astype(int)
+    # Round predictions to the nearest integer
+    # Here we convert them directly to a Python list of Python ints
+    preds_rounded = [int(round(x)) for x in raw_predictions]
+    
+    # Convert the predictions into a dict of Python ints: {hour -> prediction}
+    predictions_dict = {int(h): int(preds_rounded[i]) for i, h in enumerate(hours)}
 
-    # Get minimum and maximum predictions and their indices
-    min_val = preds_rounded.min()
-    max_val = preds_rounded.max()
-    min_idx = preds_rounded.argmin()
-    max_idx = preds_rounded.argmax()
-
-    # Convert the predictions into a dict: {hour -> prediction}
-    predictions_dict = dict(zip(hours, preds_rounded))
-
-    # You mentioned a helper like "format_hour(i)"—assuming it returns a string:
+    # Find min and max predictions and their corresponding hours (indices)
+    min_val = min(preds_rounded)
+    max_val = max(preds_rounded)
+    min_idx = preds_rounded.index(min_val)
+    max_idx = preds_rounded.index(max_val)
+    
+    # Convert the hour to a formatted string (assuming this function exists)
     low_index_str = format_hour(hours[min_idx])
     high_index_str = format_hour(hours[max_idx])
 
