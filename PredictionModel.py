@@ -101,31 +101,61 @@ def GetOptimumTimeDay(washers, dryers, df):
     return bestTimeIndex
 
 def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
+    # Start from "today" in the given timezone
+    start_day = datetime.datetime.now(tz)
+
+    # Prepare containers for building a single DataFrame
+    data = {
+        "What Hall?": [],
+        "Month": [],
+        "Weekday": [],
+        "Hour": []
+    }
+
+    # We'll keep a parallel list of labels (for dictionary keys and min/max)
+    full_labels = []
+
+    # Build 7 days × 24 hours = 168 rows
+    for i in range(7):
+        current_day = start_day + datetime.timedelta(days=i)
+        day_of_week = current_day.weekday()  # 0=Monday, 6=Sunday
+        day_name = dayOfWeekDict[day_of_week]  # e.g., 'Mon', 'Tue', ...
+
+        for hour in range(24):
+            data["What Hall?"].append(hall)
+            data["Month"].append(current_day.month)
+            data["Weekday"].append(day_of_week)
+            data["Hour"].append(hour)
+
+            # For labeling each prediction in the final dict
+            full_labels.append(f"{day_name} {format_hour(hour)}")
+
+    # Create the DataFrame of all rows at once
+    df = pd.DataFrame(data)
+
+    # Single prediction call (returns a NumPy array)
+    raw_predictions = model.predict(df)
+
+    # Convert each prediction to a Python int so it's JSON-serializable
+    preds_rounded = [int(round(x)) for x in raw_predictions]
+
+    # Find min and max predictions and their corresponding indices
+    min_val = min(preds_rounded)
+    max_val = max(preds_rounded)
+    min_idx = preds_rounded.index(min_val)
+    max_idx = preds_rounded.index(max_val)
+
+    # Build final dictionary of predictions
     predictions = {}
-    day = datetime.datetime.now(tz)
-    low = 100
-    lowIndex = ""
-    highIndex = ""
-    high = -100
-    for i in range (7):
-        newDay = (day + datetime.timedelta(days=i))
-        df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
-        df['What Hall?'] = [hall]
-        df['Month'] = [newDay.month]
-        df['Weekday'] = [newDay.weekday()]
-        for x in range (24):
-            df['Hour'] = [x]
-            predInt = round(model.predict(df)[0])
-            if (predInt > high):
-                high = predInt
-                highIndex = f"{dayOfWeekDict[newDay.weekday()]} {format_hour(x)}"
-            if(predInt < low):
-                low = predInt
-                lowIndex = f"{dayOfWeekDict[newDay.weekday()]} {format_hour(x)}"
-            predictions[f"{dayOfWeekDict[newDay.weekday()]} {format_hour(x)}"] = predInt
-    predictions["High"] = highIndex
-    predictions['Low'] = lowIndex
+    for i, label in enumerate(full_labels):
+        predictions[label] = preds_rounded[i]
+
+    # Attach the "High" and "Low" keys to show which day/hour is min or max
+    predictions["Low"] = full_labels[min_idx]
+    predictions["High"] = full_labels[max_idx]
+
     return predictions
+
 
 def format_hour(hour):
     hour_int = int(hour)  # Ensure hour is an integer
