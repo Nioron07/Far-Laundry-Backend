@@ -41,10 +41,8 @@ def GetCurrentPrediction(model: RandomForestRegressor, hall: str):
     return round(model.predict(df)[0])
 
 def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime):
-    # Create an array of all hours
     hours = list(range(24))
     
-    # Create a DataFrame with 24 rows (one row per hour)
     data = {
         "What Hall?": [hall] * 24,
         "Month": [day.month] * 24,
@@ -53,22 +51,16 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     }
     df = pd.DataFrame(data)
 
-    # Predict all 24 hours in a single call
     raw_predictions = model.predict(df)
-    # Round predictions to the nearest integer
-    # Here we convert them directly to a Python list of Python ints
     preds_rounded = [int(round(x)) for x in raw_predictions]
     
-    # Convert the predictions into a dict of Python ints: {hour -> prediction}
     predictions_dict = {int(h): int(preds_rounded[i]) for i, h in enumerate(hours)}
 
-    # Find min and max predictions and their corresponding hours (indices)
     min_val = min(preds_rounded)
     max_val = max(preds_rounded)
     min_idx = preds_rounded.index(min_val)
     max_idx = preds_rounded.index(max_val)
     
-    # Convert the hour to a formatted string (assuming this function exists)
     low_index_str = format_hour(hours[min_idx])
     high_index_str = format_hour(hours[max_idx])
 
@@ -78,33 +70,57 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
         "High": high_index_str
     }
 
-def GetOptimumTime(washers: RandomForestRegressor, dryers: RandomForestRegressor, hall: str, startDay: datetime, endDay: datetime, step: int):
+def GetOptimumTimeDay(washers: RandomForestRegressor, 
+                      dryers: RandomForestRegressor, 
+                      df: pd.DataFrame) -> str:
+    row = df.iloc[0]
+    
+    df_24 = pd.DataFrame({
+        "What Hall?":  [row["What Hall?"]]*24,
+        "Month":       [row["Month"]]*24,
+        "Weekday":     [row["Weekday"]]*24,
+        "Hour":        np.arange(24)
+    })
+    
+    washer_preds = washers.predict(df_24)
+    dryer_preds  = dryers.predict(df_24)
+    
+    avg_preds = (washer_preds + dryer_preds) / 2.0
+    
+    best_hour = int(np.argmax(avg_preds))
+    
+    return format_hour(best_hour)
+
+def GetOptimumTime(washers: RandomForestRegressor, 
+                   dryers: RandomForestRegressor, 
+                   hall: str, 
+                   startDay: datetime.datetime, 
+                   endDay: datetime.datetime, 
+                   step: int):
     timeArr = []
-    df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
-    iterDate: datetime = startDay
-    while (iterDate <= endDay):
-        df['What Hall?'] = [hall]
-        df['Month'] = [iterDate.month]
-        df['Weekday'] = [iterDate.weekday()]
-        timeArr.append({'time': iterDate,"bestTime": GetOptimumTimeDay(washers, dryers, df)})
+    iterDate = startDay
+    while iterDate <= endDay:
+        df = pd.DataFrame({
+            "What Hall?": [hall],
+            "Month":      [iterDate.month],
+            "Weekday":    [iterDate.weekday()],
+            "Hour":       [0]
+        })
+        
+        best_hour_string = GetOptimumTimeDay(washers, dryers, df)
+        
+        timeArr.append({
+            "time":     iterDate,
+            "bestTime": best_hour_string
+        })
+        
         iterDate += datetime.timedelta(days=step)
+    
     return timeArr
 
-def GetOptimumTimeDay(washers, dryers, df):
-    bestTime = 0
-    for i in range (24):
-        df['Hour'] = [i]
-        avgPredInt = (washers.predict(df)[0] + dryers.predict(df)[0])/2
-        if (avgPredInt > bestTime):
-                bestTime = avgPredInt
-                bestTimeIndex = f"{format_hour(i)}"
-    return bestTimeIndex
-
 def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
-    # Start from "today" in the given timezone
     start_day = datetime.datetime.now(tz)
 
-    # Prepare containers for building a single DataFrame
     data = {
         "What Hall?": [],
         "Month": [],
@@ -112,14 +128,12 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
         "Hour": []
     }
 
-    # We'll keep a parallel list of labels (for dictionary keys and min/max)
     full_labels = []
 
-    # Build 7 days × 24 hours = 168 rows
     for i in range(7):
         current_day = start_day + datetime.timedelta(days=i)
-        day_of_week = current_day.weekday()  # 0=Monday, 6=Sunday
-        day_name = dayOfWeekDict[day_of_week]  # e.g., 'Mon', 'Tue', ...
+        day_of_week = current_day.weekday()  
+        day_name = dayOfWeekDict[day_of_week] 
 
         for hour in range(24):
             data["What Hall?"].append(hall)
@@ -127,30 +141,23 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
             data["Weekday"].append(day_of_week)
             data["Hour"].append(hour)
 
-            # For labeling each prediction in the final dict
             full_labels.append(f"{day_name} {format_hour(hour)}")
 
-    # Create the DataFrame of all rows at once
     df = pd.DataFrame(data)
 
-    # Single prediction call (returns a NumPy array)
     raw_predictions = model.predict(df)
 
-    # Convert each prediction to a Python int so it's JSON-serializable
     preds_rounded = [int(round(x)) for x in raw_predictions]
 
-    # Find min and max predictions and their corresponding indices
     min_val = min(preds_rounded)
     max_val = max(preds_rounded)
     min_idx = preds_rounded.index(min_val)
     max_idx = preds_rounded.index(max_val)
 
-    # Build final dictionary of predictions
     predictions = {}
     for i, label in enumerate(full_labels):
         predictions[label] = preds_rounded[i]
 
-    # Attach the "High" and "Low" keys to show which day/hour is min or max
     predictions["Low"] = full_labels[min_idx]
     predictions["High"] = full_labels[max_idx]
 
@@ -158,9 +165,9 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
 
 
 def format_hour(hour):
-    hour_int = int(hour)  # Ensure hour is an integer
+    hour_int = int(hour)  
     period = "AM" if hour_int < 12 else "PM"
-    hour_formatted = 12 if hour_int % 12 == 0 else hour_int % 12  # Convert to 12-hour format
+    hour_formatted = 12 if hour_int % 12 == 0 else hour_int % 12  
     return f"{hour_formatted}:00{period}"
 
 def getLabel():
