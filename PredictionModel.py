@@ -6,13 +6,13 @@ from sklearn.ensemble import RandomForestRegressor
 import pytz
 
 dayOfWeekDict = {
-    6: "Sunday",
-    0: "Monday",
-    1: "Tuesday",
-    2: "Wednesday",
-    3: "Thursday",
-    4: "Friday",
-    5: "Saturday"
+    6: "Sun",
+    0: "Mon",
+    1: "Tues",
+    2: "Wed",
+    3: "Thurs",
+    4: "Fri",
+    5: "Sat"
 }
 
 tz = pytz.timezone("US/Central")
