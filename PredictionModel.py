@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import pytz
@@ -40,24 +41,41 @@ def GetCurrentPrediction(model: RandomForestRegressor, hall: str):
     return round(model.predict(df)[0])
 
 def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime):
-    predictions = {}
-    df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
-    df['What Hall?'] = [hall]
-    df['Month'] = [day.month]
-    df['Weekday'] = [day.weekday()]
-    low = 100
-    high = -100
-    for i in range (24):
-        df['Hour'] = [i]
-        predInt = round(model.predict(df)[0])
-        if (predInt > high):
-                high = predInt
-                highIndex = f"{format_hour(i)}"
-        if (predInt < low):
-                low = predInt
-                lowIndex = f"{format_hour(i)}"
-        predictions[i] = predInt
-    return {"Predictions": predictions, "Low": lowIndex, "High": highIndex}
+    # Create an array of all hours
+    hours = list(range(24))
+    
+    # Create a DataFrame with 24 rows (one per hour)
+    data = {
+        "What Hall?": [hall] * 24,
+        "Month": [day.month] * 24,
+        "Weekday": [day.weekday()] * 24,
+        "Hour": hours
+    }
+    df = pd.DataFrame(data)
+
+    # Predict all 24 hours in a single call
+    raw_predictions = model.predict(df)
+    # Round predictions to integers
+    preds_rounded = np.rint(raw_predictions).astype(int)
+
+    # Get minimum and maximum predictions and their indices
+    min_val = preds_rounded.min()
+    max_val = preds_rounded.max()
+    min_idx = preds_rounded.argmin()
+    max_idx = preds_rounded.argmax()
+
+    # Convert the predictions into a dict: {hour -> prediction}
+    predictions_dict = dict(zip(hours, preds_rounded))
+
+    # You mentioned a helper like "format_hour(i)"—assuming it returns a string:
+    low_index_str = format_hour(hours[min_idx])
+    high_index_str = format_hour(hours[max_idx])
+
+    return {
+        "Predictions": predictions_dict,
+        "Low": low_index_str,
+        "High": high_index_str
+    }
 
 def GetOptimumTime(washers: RandomForestRegressor, dryers: RandomForestRegressor, hall: str, startDay: datetime, endDay: datetime, step: int):
     timeArr = []
