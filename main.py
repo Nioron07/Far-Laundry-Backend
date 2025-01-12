@@ -15,6 +15,7 @@ tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
 def Retrain():
+    DataCleaning.UpdateDataFiles()
     global washerModel
     global dryerModel
     threading.Timer(86400.0, Retrain).start()
