@@ -30,7 +30,7 @@ def GetData():
     df.loc[df["What Hall?"].size] = data[0]
     df.loc[df["What Hall?"].size] = data[1]
     df.to_csv("backend\\Data Files\\WebAppData.csv", index=False)
-    threading.Timer(10.0, GetData).start()
+    threading.Timer(600.0, GetData).start()
 
 GetData()
 Retrain()
