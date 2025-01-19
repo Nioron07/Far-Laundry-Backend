@@ -3,7 +3,12 @@ from selenium.webdriver.common.by import By
 import time
 from datetime import datetime
 import pytz
+from selenium.webdriver.chrome.options import Options
 
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
 tz = pytz.timezone("US/Central")
 def scrape_laundry_summary():
     Og_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-025"
@@ -11,7 +16,7 @@ def scrape_laundry_summary():
     
     # Initialize the WebDriver (Chrome in this example)
     # Make sure you've installed ChromeDriver and have it in your PATH.
-    driver = webdriver.Chrome()
+    driver = webdriver.Chrome(options=chrome_options)
     
     try:
         # Navigate to the page
