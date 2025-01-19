@@ -11,7 +11,7 @@ import threading
 import pytz
 
 DataCleaning.UpdateDataFiles()
-
+# timezone
 tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
