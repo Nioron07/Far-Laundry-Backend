@@ -17,7 +17,7 @@ dayOfWeekDict = {
 
 tz = pytz.timezone("US/Central")
 def CreateModel(machineType: str):
-    df = pd.concat([pd.read_csv("./Data Files/GoogleFormData.csv"), pd.read_csv("./Data Files/WebAppData.csv")], axis=0)
+    df = pd.concat([pd.read_csv("backend\\Data Files\\GoogleFormData.csv"), pd.read_csv("backend\\Data Files\\WebAppData.csv")], axis=0)
 
     #Assigns Independent and Dependent variables in the form of X and y
     X = df.drop(["How many Washing Machines are Available?", "How many Dryers are Available?"], axis = 1)

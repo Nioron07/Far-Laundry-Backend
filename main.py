@@ -4,6 +4,7 @@ from flask import Flask, jsonify, request, make_response
 import flask_cors
 import DataCleaning
 import PredictionModel
+import DataScraper
 from datetime import datetime
 import pandas as pd
 import threading
@@ -23,6 +24,15 @@ def Retrain():
     washerModel = PredictionModel.CreateModel("Washing Machines")
     dryerModel = PredictionModel.CreateModel("Dryers")
 
+def GetData():
+    data = DataScraper.scrape_laundry_summary()
+    df = pd.read_csv("backend\\Data Files\\WebAppData.csv")
+    df.loc[df["What Hall?"].size] = data[0]
+    df.loc[df["What Hall?"].size] = data[1]
+    df.to_csv("backend\\Data Files\\WebAppData.csv", index=False)
+    threading.Timer(10.0, GetData).start()
+
+GetData()
 Retrain()
 # creating a Flask app 
 app = Flask(__name__)
@@ -37,8 +47,10 @@ def home():
 
 @app.route('/current/<int:hall>', methods = ['GET']) 
 def current(hall):
-    return jsonify({'Washing Machines': int(PredictionModel.GetCurrentPrediction(washerModel, hall)),
-                    "Dryers": int(PredictionModel.GetCurrentPrediction(dryerModel, hall))}) 
+    data = DataScraper.scrape_laundry_summary()
+    return jsonify({'Washing Machines': data[hall][0],
+                    "Dryers": data[hall][1],
+                    "Timestamp": data[2]}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
@@ -65,11 +77,11 @@ def optimumTime(hall, startDay, endDay, step):
 def contribute():
     try:
         data = request.json['data']
-        df = pd.read_csv("Laundry Data Pro\\laundry-API-backend\\Data Files\\WebAppData.csv")
+        df = pd.read_csv("backend\\Data Files\\WebAppData.csv")
         if (((df['How many Washing Machines are Available?'] == data[0]) & (df['How many Dryers are Available?'] == data[1]) & (df['What Hall?'] == data[2]) & (df['Month'] == data[3]) & (df['Weekday'] == data[4]) & (df['Hour'] == data[5])).any()):
             return make_response("POST request contains duplicate data", 202)
         df.loc[df["What Hall?"].size] = request.json['data']
-        df.to_csv("Laundry Data Pro\\laundry-API-backend\\Data Files\\WebAppData.csv", index=False)
+        df.to_csv("backend\\Data Files\\WebAppData.csv", index=False)
         return make_response("POST request succeded", 200)
     except:
         return make_response("POST request failed", 201)
