@@ -26,10 +26,10 @@ def Retrain():
 
 def GetData():
     data = DataScraper.scrape_laundry_summary()
-    df = pd.read_csv("backend\\Data Files\\WebAppData.csv")
+    df = pd.read_csv("./Data Files/WebAppData.csv")
     df.loc[df["What Hall?"].size] = data[0]
     df.loc[df["What Hall?"].size] = data[1]
-    df.to_csv("backend\\Data Files\\WebAppData.csv", index=False)
+    df.to_csv("./Data Files/WebAppData.csv", index=False)
     threading.Timer(600.0, GetData).start()
 
 GetData()
@@ -77,11 +77,11 @@ def optimumTime(hall, startDay, endDay, step):
 def contribute():
     try:
         data = request.json['data']
-        df = pd.read_csv("backend\\Data Files\\WebAppData.csv")
+        df = pd.read_csv("./Data Files/WebAppData.csv")
         if (((df['How many Washing Machines are Available?'] == data[0]) & (df['How many Dryers are Available?'] == data[1]) & (df['What Hall?'] == data[2]) & (df['Month'] == data[3]) & (df['Weekday'] == data[4]) & (df['Hour'] == data[5])).any()):
             return make_response("POST request contains duplicate data", 202)
         df.loc[df["What Hall?"].size] = request.json['data']
-        df.to_csv("backend\\Data Files\\WebAppData.csv", index=False)
+        df.to_csv("./Data Files/WebAppData.csv", index=False)
         return make_response("POST request succeded", 200)
     except:
         return make_response("POST request failed", 201)
