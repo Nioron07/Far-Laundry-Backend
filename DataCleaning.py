@@ -36,12 +36,12 @@ def ConvertHall(dataframe):
     dataframe['What Hall?'] = halls
 
 def UpdateDataFiles():
-    with open("./Data Files/Data Files\\DirtyData.txt", "w") as file:
+    with open("./Data Files/DirtyData.txt", "w") as file:
         file.write(requests.get("https://docs.google.com/spreadsheets/d/1pWSXxci7Fah_sV5U9hRdXjSkr4hsvlP2EAPg1vPnSaM/gviz/tq?tqx=out:csv&sheet=Form Responses 1").content.decode())
-    df = pd.read_csv("backend\\Data Files\\DirtyData.txt")
+    df = pd.read_csv("./Data Files/DirtyData.txt")
     df.dropna(axis=1, inplace=True)
 
     ConvertTimestamp(df)
     ConvertHall(df)
     df.drop(columns=['Timestamp'], inplace=True)
-    df.to_csv("./Data Files/Data Files\\GoogleFormData.csv", index=False)
+    df.to_csv("./Data Files/GoogleFormData.csv", index=False)
