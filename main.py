@@ -5,10 +5,12 @@ import flask_cors
 import DataCleaning
 import PredictionModel
 import DataScraper
+import SQLConnect
 from datetime import datetime
 import pandas as pd
 import threading
 import pytz
+import sqlalchemy
 
 DataCleaning.UpdateDataFiles()
 # timezone
@@ -16,6 +18,7 @@ tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
 currentData = None
+db = SQLConnect.connect_with_connector()
 def Retrain():
     DataCleaning.UpdateDataFiles()
     global washerModel
@@ -27,7 +30,7 @@ def Retrain():
 
 def GetData():
     global currentData
-    data = DataScraper.scrape_laundry_summary()
+    data = DataScraper.scrape_laundry_summary(db)
     df = pd.read_csv("./Data Files/WebAppData.csv")
     df.loc[df["What Hall?"].size] = data[0]
     df.loc[df["What Hall?"].size] = data[1]
@@ -43,6 +46,8 @@ app = Flask(__name__)
 app.json.sort_keys = False
 cors = flask_cors.CORS(app) # allow CORS for all domains on all routes.
 app.config['CORS_HEADERS'] = 'Content-Type'
+
+
 
 @app.route('/', methods = ['GET']) 
 def home():

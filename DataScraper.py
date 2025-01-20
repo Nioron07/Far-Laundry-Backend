@@ -3,14 +3,17 @@ from selenium.webdriver.common.by import By
 import time
 from datetime import datetime
 import pytz
+import logging
 from selenium.webdriver.chrome.options import Options
+import sqlalchemy
+logger = logging.getLogger()
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 tz = pytz.timezone("US/Central")
-def scrape_laundry_summary():
+def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
     Og_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-025"
     Tr_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-026"
     
@@ -60,4 +63,19 @@ def scrape_laundry_summary():
         # Close the browser
         driver.quit()
         now = datetime.now(tz=tz)
-        return([[int(Og_washers), int(Og_dryers), 0, now.month, now.weekday(), now.hour], [int(Tr_washers), int(Tr_dryers), 1, now.month, now.weekday(), now.hour], now.strftime("%I:%M%p")])
+        stmt = sqlalchemy.text(
+        "INSERT INTO laundry (washers_available, dryers_available, hall, month, weekday, hour, minute, year, date_added, day) VALUES (:washers, :dryers, :hall, :month, :weekday, :hour, :minute, :year, :date_added, :day)"
+        )
+        try:
+            # Using a with statement ensures that the connection is always released
+            # back into the pool at the end of statement (even if an error occurs)
+            with db.connect() as conn:
+                conn.execute(stmt, parameters={"washers": Og_washers, "dryers": Og_dryers, "hall": 0, "month": now.month, "weekday": now.weekday(), "hour": now.hour, "minute": now.minute, "year": now.year, "date_added": now.strftime("%Y-%m-%d %H:%M:%S"), "day": now.day})
+                conn.execute(stmt, parameters={"washers": Tr_washers, "dryers": Tr_dryers, "hall": 1, "month": now.month, "weekday": now.weekday(), "hour": now.hour, "minute": now.minute, "year": now.year, "date_added": now.strftime("%Y-%m-%d %H:%M:%S"), "day": now.day})
+                conn.commit()
+        except Exception as e:
+            # If something goes wrong, handle the error in this section. This might
+            # involve retrying or adjusting parameters depending on the situation.
+            # [START_EXCLUDE]
+            logger.exception(e)
+            return
