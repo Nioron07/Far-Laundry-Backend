@@ -15,6 +15,7 @@ DataCleaning.UpdateDataFiles()
 tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
+currentData = None
 def Retrain():
     DataCleaning.UpdateDataFiles()
     global washerModel
@@ -25,12 +26,14 @@ def Retrain():
     dryerModel = PredictionModel.CreateModel("Dryers")
 
 def GetData():
+    global currentData
     data = DataScraper.scrape_laundry_summary()
     df = pd.read_csv("./Data Files/WebAppData.csv")
     df.loc[df["What Hall?"].size] = data[0]
     df.loc[df["What Hall?"].size] = data[1]
     df.to_csv("./Data Files/WebAppData.csv", index=False)
     print(data)
+    currentData = data
     threading.Timer(600.0, GetData).start()
 
 GetData()
@@ -48,10 +51,9 @@ def home():
 
 @app.route('/current/<int:hall>', methods = ['GET']) 
 def current(hall):
-    data = DataScraper.scrape_laundry_summary()
-    return jsonify({'Washing Machines': data[hall][0],
-                    "Dryers": data[hall][1],
-                    "Timestamp": data[2]}) 
+    return jsonify({'Washing Machines': currentData[hall][0],
+                    "Dryers": currentData[hall][1],
+                    "Timestamp": currentData[2]}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
