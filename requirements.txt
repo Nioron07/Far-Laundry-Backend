@@ -8,7 +8,7 @@ gunicorn==20.1.0
 pytz==2024.2
 numpy==1.26.4
 selenium==4.27.1
-google-cloud-sql-connector==2.5.0
+google-cloud-sql-connector==2.4.0
 sqlalchemy==2.0.21
 PyMySQL==1.1.0
 python-dotenv==1.0.0
