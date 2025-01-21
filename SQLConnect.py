@@ -39,9 +39,9 @@ def connect_with_connector() -> sqlalchemy.engine.base.Engine:
     db_name = os.environ["DB_NAME"]  # e.g. 'my-database'
 
     ip_type = IPTypes.PRIVATE if os.environ.get("PRIVATE_IP") else IPTypes.PUBLIC
-
+    print("IP")
     connector = Connector(ip_type)
-
+    print("connector created")
     def getconn() -> pymysql.connections.Connection:
         conn: pymysql.connections.Connection = connector.connect(
             instance_connection_name,
@@ -51,7 +51,7 @@ def connect_with_connector() -> sqlalchemy.engine.base.Engine:
             db=db_name,
         )
         return conn
-
+    print("conn created")
     pool = sqlalchemy.create_engine(
         "mysql+pymysql://",
         creator=getconn,
