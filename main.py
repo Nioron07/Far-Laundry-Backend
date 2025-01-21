@@ -30,7 +30,7 @@ def Retrain():
 
 def GetData():
     DataScraper.scrape_laundry_summary(db)
-    threading.Timer(600.0, GetData).start()
+    threading.Timer(300.0, GetData).start()
 
 GetData()
 Retrain()

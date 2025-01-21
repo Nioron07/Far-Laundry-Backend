@@ -20,7 +20,7 @@ tz = pytz.timezone("US/Central")
 def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     query = "SELECT * FROM laundry;"
     df = pd.read_sql(query, con=db)
-
+    print(df)
     #Assigns Independent and Dependent variables in the form of X and y
     X = df.drop(["washers_available", "dryers_available", "date_added", "id"], axis = 1)
     y = df[f"{machineType}_available"]
