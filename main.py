@@ -66,9 +66,9 @@ def current(hall):
         # involve retrying or adjusting parameters depending on the situation.
         # [START_EXCLUDE]
         logger.exception(e)
-    return jsonify({'Washing Machines': recent_data[0],
-                    "Dryers": recent_data[1],
-                    "Timestamp": recent_data[2]}) 
+    return jsonify({'Washing Machines': recent_data[0][0],
+                    "Dryers": recent_data[0][1],
+                    "Timestamp": recent_data[0][2]}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
