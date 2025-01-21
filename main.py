@@ -23,8 +23,8 @@ db = SQLConnect.connect_with_connector()
 def Retrain():
     global washerModel
     global dryerModel
-    washerModel = PredictionModel.CreateModel("Washing Machines", db)
-    dryerModel = PredictionModel.CreateModel("Dryers", db)
+    washerModel = PredictionModel.CreateModel("washers", db)
+    dryerModel = PredictionModel.CreateModel("dryers", db)
     print("Retrained")
     threading.Timer(86400.0, Retrain).start()
 

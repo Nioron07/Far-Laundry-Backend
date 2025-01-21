@@ -23,7 +23,7 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
 
     #Assigns Independent and Dependent variables in the form of X and y
     X = df.drop(["washers_available", "dryers_available", "date_added", "id"], axis = 1)
-    y = df["How many " + machineType + " are Available?"]
+    y = df[f"{machineType}_available"]
 
     #Creates testing data sets and training data sets with training making up 80% of the origninal dataset and testing being 20%
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
