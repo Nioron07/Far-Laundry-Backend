@@ -23,6 +23,7 @@ def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
     
     try:
         # Navigate to the page
+        print("starting scraping...")
         driver.get(Og_url)
         
         # Optionally, wait a few seconds to allow JavaScript to load content (a more robust approach would be using WebDriverWait)
@@ -60,6 +61,7 @@ def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
             print(f"Unable to find element 2: {e}")
     
     finally:
+        print("starting SQL")
         # Close the browser
         driver.quit()
         now = datetime.now(tz=tz)
@@ -73,6 +75,7 @@ def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
                 conn.execute(stmt, parameters={"washers": Og_washers, "dryers": Og_dryers, "hall": 0, "month": now.month, "weekday": now.weekday(), "hour": now.hour, "minute": now.minute, "year": now.year, "date_added": now.strftime("%Y-%m-%d %H:%M:%S"), "day": now.day})
                 conn.execute(stmt, parameters={"washers": Tr_washers, "dryers": Tr_dryers, "hall": 1, "month": now.month, "weekday": now.weekday(), "hour": now.hour, "minute": now.minute, "year": now.year, "date_added": now.strftime("%Y-%m-%d %H:%M:%S"), "day": now.day})
                 conn.commit()
+                print("commited changes")
         except Exception as e:
             # If something goes wrong, handle the error in this section. This might
             # involve retrying or adjusting parameters depending on the situation.
