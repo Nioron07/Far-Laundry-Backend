@@ -20,6 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcursor1 \
     libxdamage1 \
     libxfixes3 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    fonts-liberation \
+    xdg-utils \
     libxi6 \
     libxrandr2 \
     libxrender1 \

@@ -2,7 +2,6 @@
 # import necessary libraries and functions 
 from flask import Flask, jsonify, request, make_response 
 import flask_cors
-import DataCleaning
 import PredictionModel
 import DataScraper
 import SQLConnect
@@ -13,8 +12,6 @@ import pytz
 import logging
 import sqlalchemy
 logger = logging.getLogger()
-
-DataCleaning.UpdateDataFiles()
 # timezone
 tz = pytz.timezone("US/Central")
 washerModel = None
@@ -30,7 +27,7 @@ def Retrain():
 
 def GetData():
     DataScraper.scrape_laundry_summary(db)
-    threading.Timer(300.0, GetData).start()
+    threading.Timer(5.0, GetData).start()
 
 GetData()
 Retrain()
