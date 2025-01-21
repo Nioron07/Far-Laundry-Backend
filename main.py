@@ -68,7 +68,7 @@ def current(hall):
         logger.exception(e)
     return jsonify({'Washing Machines': recent_data[0][0],
                     "Dryers": recent_data[0][1],
-                    "Timestamp": recent_data[0][2].strftime('%-I:%M %p').lower()}) 
+                    "Timestamp": recent_data[0][2].strftime('%-I:%M%p').upper()}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
@@ -95,11 +95,23 @@ def optimumTime(hall, startDay, endDay, step):
 def contribute():
     try:
         data = request.json['data']
-        df = pd.read_csv("./Data Files/WebAppData.csv")
-        if (((df['How many Washing Machines are Available?'] == data[0]) & (df['How many Dryers are Available?'] == data[1]) & (df['What Hall?'] == data[2]) & (df['Month'] == data[3]) & (df['Weekday'] == data[4]) & (df['Hour'] == data[5])).any()):
-            return make_response("POST request contains duplicate data", 202)
-        df.loc[df["What Hall?"].size] = request.json['data']
-        df.to_csv("./Data Files/WebAppData.csv", index=False)
+        stmt = sqlalchemy.text(
+            "INSERT INTO laundry (washers_available, dryers_available, hall, month, weekday, hour, minute, year, date_added, day) VALUES (:washers, :dryers, :hall, :month, :weekday, :hour, :minute, :year, :date_added, :day)"
+        )
+        try:
+            # Using a with statement ensures that the connection is always released
+            # back into the pool at the end of statement (even if an error occurs)
+            now = datetime.now(tz=tz)
+            with db.connect() as conn:
+                conn.execute(stmt, parameters={"washers": data[0], "dryers": data[1], "hall": data[2], "month": now.month, "weekday": now.weekday(), "hour": now.hour, "minute": now.minute, "year": now.year, "date_added": now.strftime("%Y-%m-%d %H:%M:%S"), "day": now.day})
+                conn.commit()
+                print("commited changes")
+        except Exception as e:
+            # If something goes wrong, handle the error in this section. This might
+            # involve retrying or adjusting parameters depending on the situation.
+            # [START_EXCLUDE]
+            logger.exception(e)
+
         return make_response("POST request succeded", 200)
     except:
         return make_response("POST request failed", 201)

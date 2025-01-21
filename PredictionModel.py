@@ -112,10 +112,13 @@ def GetOptimumTime(washers: RandomForestRegressor,
     iterDate = startDay
     while iterDate <= endDay:
         df = pd.DataFrame({
-            "What Hall?": [hall],
-            "Month":      [iterDate.month],
-            "Weekday":    [iterDate.weekday()],
-            "Hour":       [0]
+            "hall": [hall],
+            "month":      [iterDate.month],
+            "weekday":    [iterDate.weekday()],
+            "hour":       [0],
+            "minute": [0],
+            "year": [iterDate.year],
+            "day": [iterDate.day],
         })
         
         best_hour_string = GetOptimumTimeDay(washers, dryers, df)
@@ -133,10 +136,13 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
     start_day = datetime.datetime.now(tz)
 
     data = {
-        "What Hall?": [],
-        "Month": [],
-        "Weekday": [],
-        "Hour": []
+            "hall": [],
+            "month":      [],
+            "weekday":    [],
+            "hour":       [],
+            "minute": [],
+            "year": [],
+            "day": [],
     }
 
     full_labels = []
@@ -147,10 +153,13 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
         day_name = dayOfWeekDict[day_of_week] 
 
         for hour in range(24):
-            data["What Hall?"].append(hall)
-            data["Month"].append(current_day.month)
-            data["Weekday"].append(day_of_week)
-            data["Hour"].append(hour)
+            data["hall"].append(hall)
+            data["month"].append(current_day.month)
+            data["weekday"].append(day_of_week)
+            data["hour"].append(hour)
+            data["minute"].append(0)
+            data["year"].append(current_day.year)
+            data["day"].append(current_day.day)
 
             full_labels.append(f"{day_name} {format_hour(hour)}")
 
