@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import pytz
+import sqlalchemy
 
 dayOfWeekDict = {
     6: "Sun",
@@ -16,11 +17,12 @@ dayOfWeekDict = {
 }
 
 tz = pytz.timezone("US/Central")
-def CreateModel(machineType: str):
-    df = pd.concat([pd.read_csv("./Data Files/GoogleFormData.csv"), pd.read_csv("./Data Files/WebAppData.csv")], axis=0)
+def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
+    query = "SELECT * FROM laundry;"
+    df = pd.read_sql(query, con=db)
 
     #Assigns Independent and Dependent variables in the form of X and y
-    X = df.drop(["How many Washing Machines are Available?", "How many Dryers are Available?"], axis = 1)
+    X = df.drop(["washers_available", "dryers_available", "date_added", "id"], axis = 1)
     y = df["How many " + machineType + " are Available?"]
 
     #Creates testing data sets and training data sets with training making up 80% of the origninal dataset and testing being 20%
@@ -33,21 +35,27 @@ def CreateModel(machineType: str):
 
 def GetCurrentPrediction(model: RandomForestRegressor, hall: str):
     day = datetime.datetime.now(tz)
-    df = pd.DataFrame(columns=["What Hall?", "Month", "Weekday", "Hour"])
-    df['What Hall?'] = [hall]
-    df['Month'] = [day.month]
-    df['Weekday'] = [day.weekday()]
-    df['Hour'] = [day.hour]
+    df = pd.DataFrame(columns=["hall", "month", "weekday", "hour", "minute", "year", "day"])
+    df['hall'] = [hall]
+    df['month'] = [day.month]
+    df['weekday'] = [day.weekday()]
+    df['hour'] = [day.hour]
+    df['minute'] = [day.minute]
+    df['year'] = [day.year]
+    df['day'] = [day.day]
     return round(model.predict(df)[0])
 
 def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime):
     hours = list(range(24))
     
     data = {
-        "What Hall?": [hall] * 24,
-        "Month": [day.month] * 24,
-        "Weekday": [day.weekday()] * 24,
-        "Hour": hours
+        "hall": [hall] * 24,
+        "month": [day.month] * 24,
+        "weekday": [day.weekday()] * 24,
+        "hour": hours,
+        "minute": [0] * 24,
+        "year": [day.year] * 24,
+        "day": [day.day] * 24
     }
     df = pd.DataFrame(data)
 
@@ -76,10 +84,13 @@ def GetOptimumTimeDay(washers: RandomForestRegressor,
     row = df.iloc[0]
     
     df_24 = pd.DataFrame({
-        "What Hall?":  [row["What Hall?"]]*24,
-        "Month":       [row["Month"]]*24,
-        "Weekday":     [row["Weekday"]]*24,
-        "Hour":        np.arange(24)
+        "hall":  [row["hall"]]*24,
+        "month":       [row["month"]]*24,
+        "weekday":     [row["weekday"]]*24,
+        "hour":        np.arange(24),
+        "minute": [row["minute"]]*24,
+        "year": [row["year"]]*24,
+        "day": [row["day"]]*24,
     })
     
     washer_preds = washers.predict(df_24)

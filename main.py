@@ -10,33 +10,26 @@ from datetime import datetime
 import pandas as pd
 import threading
 import pytz
+import logging
 import sqlalchemy
+logger = logging.getLogger()
 
 DataCleaning.UpdateDataFiles()
 # timezone
 tz = pytz.timezone("US/Central")
 washerModel = None
 dryerModel = None
-currentData = None
 db = SQLConnect.connect_with_connector()
 def Retrain():
-    DataCleaning.UpdateDataFiles()
     global washerModel
     global dryerModel
-    threading.Timer(86400.0, Retrain).start()
+    washerModel = PredictionModel.CreateModel("Washing Machines", db)
+    dryerModel = PredictionModel.CreateModel("Dryers", db)
     print("Retrained")
-    washerModel = PredictionModel.CreateModel("Washing Machines")
-    dryerModel = PredictionModel.CreateModel("Dryers")
+    threading.Timer(86400.0, Retrain).start()
 
 def GetData():
-    global currentData
-    data = DataScraper.scrape_laundry_summary(db)
-    df = pd.read_csv("./Data Files/WebAppData.csv")
-    df.loc[df["What Hall?"].size] = data[0]
-    df.loc[df["What Hall?"].size] = data[1]
-    df.to_csv("./Data Files/WebAppData.csv", index=False)
-    print(data)
-    currentData = data
+    DataScraper.scrape_laundry_summary(db)
     threading.Timer(600.0, GetData).start()
 
 GetData()
@@ -56,9 +49,26 @@ def home():
 
 @app.route('/current/<int:hall>', methods = ['GET']) 
 def current(hall):
-    return jsonify({'Washing Machines': currentData[hall][0],
-                    "Dryers": currentData[hall][1],
-                    "Timestamp": currentData[2]}) 
+    stmt = sqlalchemy.text(
+        """SELECT washers_available, dryers_available, date_added FROM laundry
+            WHERE hall = :hall
+            ORDER BY date_added DESC
+            LIMIT 1"""
+    )
+    try:
+        # Using a with statement ensures that the connection is always released
+        # back into the pool at the end of statement (even if an error occurs)
+        with db.connect() as conn:
+            recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
+            print(recent_data)
+    except Exception as e:
+        # If something goes wrong, handle the error in this section. This might
+        # involve retrying or adjusting parameters depending on the situation.
+        # [START_EXCLUDE]
+        logger.exception(e)
+    return jsonify({'Washing Machines': recent_data[0],
+                    "Dryers": recent_data[1],
+                    "Timestamp": recent_data[2]}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
