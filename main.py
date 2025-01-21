@@ -68,7 +68,7 @@ def current(hall):
         logger.exception(e)
     return jsonify({'Washing Machines': recent_data[0][0],
                     "Dryers": recent_data[0][1],
-                    "Timestamp": recent_data[0][2]}) 
+                    "Timestamp": recent_data[0][2].strftime('%-I:%M %p').lower()}) 
 
 @app.route('/currentTime', methods = ['GET']) 
 def getTime():
