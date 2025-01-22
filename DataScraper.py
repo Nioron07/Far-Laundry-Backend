@@ -7,20 +7,20 @@ import logging
 from selenium.webdriver.chrome.options import Options
 import sqlalchemy
 logger = logging.getLogger()
+    
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+    
+# Initialize the WebDriver (Chrome in this example)
+# Make sure you've installed ChromeDriver and have it in your PATH.
+driver = webdriver.Chrome(options=chrome_options)
 
 tz = pytz.timezone("US/Central")
 def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
-    
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
     Og_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-025"
     Tr_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-026"
-    
-    # Initialize the WebDriver (Chrome in this example)
-    # Make sure you've installed ChromeDriver and have it in your PATH.
-    driver = webdriver.Chrome(options=chrome_options)
     
     try:
         # Navigate to the page
@@ -63,8 +63,6 @@ def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
     
     finally:
         print("starting SQL")
-        # Close the browser
-        driver.quit()
         now = datetime.now(tz=tz)
         stmt = sqlalchemy.text(
             "INSERT INTO laundry (washers_available, dryers_available, hall, month, weekday, hour, minute, year, date_added, day) VALUES (:washers, :dryers, :hall, :month, :weekday, :hour, :minute, :year, :date_added, :day)"
