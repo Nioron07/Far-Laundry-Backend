@@ -63,6 +63,8 @@ def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
     
     finally:
         print("starting SQL")
+        # Close the browser
+        driver.quit()
         now = datetime.now(tz=tz)
         stmt = sqlalchemy.text(
             "INSERT INTO laundry (washers_available, dryers_available, hall, month, weekday, hour, minute, year, date_added, day) VALUES (:washers, :dryers, :hall, :month, :weekday, :hour, :minute, :year, :date_added, :day)"
