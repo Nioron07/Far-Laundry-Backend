@@ -7,17 +7,20 @@ import logging
 from selenium.webdriver.chrome.options import Options
 import sqlalchemy
 logger = logging.getLogger()
+    
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("disable-infobars")
+chrome_options.add_argument("--disable-extensions")
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--no-sandbox")
+    
+# Initialize the WebDriver (Chrome in this example)
+# Make sure you've installed ChromeDriver and have it in your PATH.
 
 tz = pytz.timezone("US/Central")
 def scrape_laundry_summary(db: sqlalchemy.engine.base.Engine):
-    
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("disable-infobars")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--no-sandbox")
     driver = webdriver.Chrome(options=chrome_options)
     Og_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-025"
     Tr_url = "https://mycscgo.com/laundry/summary/b94db20b-3bf8-4517-9cae-da46d7dd73f6/2303113-026"
