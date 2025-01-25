@@ -3,10 +3,8 @@
 from flask import Flask, jsonify, request, make_response 
 import flask_cors
 import PredictionModel
-import DataScraper
 import SQLConnect
 from datetime import datetime
-import pandas as pd
 import threading
 import pytz
 import logging
@@ -24,12 +22,6 @@ def Retrain():
     dryerModel = PredictionModel.CreateModel("dryers", db)
     print("Retrained")
     threading.Timer(86400.0, Retrain).start()
-
-def GetData():
-    DataScraper.scrape_laundry_summary(db)
-    threading.Timer(5.0, GetData).start()
-
-GetData()
 Retrain()
 # creating a Flask app 
 app = Flask(__name__)
