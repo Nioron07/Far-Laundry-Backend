@@ -35,7 +35,7 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     dtr.fit(X_train, y_train)
     return dtr
 
-def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine):
+def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine, machineNum: int):
     hours = list(range(24))
     
     data = {
@@ -80,8 +80,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
             # involve retrying or adjusting parameters depending on the situation.
             # [START_EXCLUDE]
             logger.exception(e)
-        predictions_dict["Washing Machines"] = recent_data[0][0]
-        predictions_dict["Dryers"] = recent_data[0][1]
+        predictions_dict[f"{datetime.datetime.now().hour}"] = recent_data[0][machineNum]
     return {
         "Predictions": predictions_dict,
         "Low": low_index_str,
