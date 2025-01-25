@@ -65,12 +65,12 @@ def getTime():
   
 @app.route('/today/<int:hall>', methods = ['GET']) 
 def today(hall):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.now(tz), db, 2),
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime.now(tz), db, 0),
                     "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime.now(tz), db, 1)}) 
 
 @app.route('/day/<int:hall>/dayOfMonth/<int:dayOfMonth>/month/<int:month>', methods = ['GET']) 
 def day(hall, dayOfMonth, month):
-    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime(datetime.now(tz).year, month, dayOfMonth), db, 2),
+    return jsonify({'Washing Machines': PredictionModel.GetWholeDayPrediction(washerModel, hall, datetime(datetime.now(tz).year, month, dayOfMonth), db, 0),
                     "Dryers": PredictionModel.GetWholeDayPrediction(dryerModel, hall, datetime(datetime.now(tz).year, month, dayOfMonth), db, 1)}) 
   
 @app.route('/week/<int:hall>', methods = ['GET'])
