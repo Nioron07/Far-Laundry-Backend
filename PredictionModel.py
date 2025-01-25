@@ -72,6 +72,10 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     low_index_str = format_hour(hours[min_idx])
     high_index_str = format_hour(hours[max_idx])
 
+    if day.day == datetime.datetime.now().day:
+        currentPred = GetCurrentPrediction(model, hall)
+        predictions_dict["Washing Machines"] = currentPred["Washing Machines"]
+        predictions_dict["Dryers"] = currentPred["Dryers"]
     return {
         "Predictions": predictions_dict,
         "Low": low_index_str,
