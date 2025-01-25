@@ -5,7 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import pytz
 import sqlalchemy
-import main
+import logging
+logger = logging.getLogger()
 
 dayOfWeekDict = {
     6: "Sun",
@@ -34,7 +35,7 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     dtr.fit(X_train, y_train)
     return dtr
 
-def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime):
+def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine):
     hours = list(range(24))
     
     data = {
@@ -62,9 +63,25 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     high_index_str = format_hour(hours[max_idx])
 
     if day.day == datetime.datetime.now().day:
-        currentPred = main.current(hall)
-        predictions_dict["Washing Machines"] = currentPred["Washing Machines"]
-        predictions_dict["Dryers"] = currentPred["Dryers"]
+        stmt = sqlalchemy.text(
+            """SELECT washers_available, dryers_available, date_added FROM laundry
+                WHERE hall = :hall
+                ORDER BY date_added DESC
+                LIMIT 1"""
+        )
+        try:
+            # Using a with statement ensures that the connection is always released
+            # back into the pool at the end of statement (even if an error occurs)
+            with db.connect() as conn:
+                recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
+                print(recent_data)
+        except Exception as e:
+            # If something goes wrong, handle the error in this section. This might
+            # involve retrying or adjusting parameters depending on the situation.
+            # [START_EXCLUDE]
+            logger.exception(e)
+        predictions_dict["Washing Machines"] = recent_data[0][0]
+        predictions_dict["Dryers"] = recent_data[0][1]
     return {
         "Predictions": predictions_dict,
         "Low": low_index_str,
