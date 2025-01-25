@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import pytz
 import sqlalchemy
+import main
 
 dayOfWeekDict = {
     6: "Sun",
@@ -32,18 +33,6 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     dtr = RandomForestRegressor(max_depth=10, n_estimators=200, n_jobs=-1)
     dtr.fit(X_train, y_train)
     return dtr
-
-def GetCurrentPrediction(model: RandomForestRegressor, hall: str):
-    day = datetime.datetime.now(tz)
-    df = pd.DataFrame(columns=["hall", "month", "weekday", "hour", "minute", "year", "day"])
-    df['hall'] = [hall]
-    df['month'] = [day.month]
-    df['weekday'] = [day.weekday()]
-    df['hour'] = [day.hour]
-    df['minute'] = [day.minute]
-    df['year'] = [day.year]
-    df['day'] = [day.day]
-    return round(model.predict(df)[0])
 
 def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime):
     hours = list(range(24))
@@ -73,7 +62,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     high_index_str = format_hour(hours[max_idx])
 
     if day.day == datetime.datetime.now().day:
-        currentPred = GetCurrentPrediction(model, hall)
+        currentPred = main.current(hall)
         predictions_dict["Washing Machines"] = currentPred["Washing Machines"]
         predictions_dict["Dryers"] = currentPred["Dryers"]
     return {
