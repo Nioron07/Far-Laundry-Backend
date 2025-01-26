@@ -31,7 +31,7 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
     #Defines and Fits each of the respective classifiers
-    dtr = RandomForestRegressor(max_depth=10, n_estimators=200, n_jobs=-1)
+    dtr = RandomForestRegressor(max_depth=15, n_estimators=300, n_jobs=-1)
     dtr.fit(X_train, y_train)
     return dtr
 
