@@ -58,20 +58,28 @@ def GetWholeDayPrediction(
     if is_today and current_interval >= 0:
         # Query the database for measured data up to the current interval
         stmt = sqlalchemy.text(
-        """WITH cte AS (
-                SELECT 
-                    t.*,
-                    ROW_NUMBER() OVER (PARTITION BY t.hour, t.minute ORDER BY t.id) AS rn
-                FROM laundry t
-                WHERE t.hall = :hall
-                AND t.day = :day
-                AND t.month = :month
-                AND t.year = :year
-                AND (t.hour * 60 + t.minute) <= :current_minute
-            )
-            SELECT washers_available, dryers_available, (t.hour * 60 + t.minute) AS interval
-            FROM cte
-            ORDER BY interval, rn ASC;"""
+        """WITH
+            cte AS (
+            SELECT
+                t.*,
+                ROW_NUMBER() OVER (PARTITION BY t.hour, t.minute ORDER BY t.id) AS rn
+            FROM
+                laundry t
+            WHERE
+                t.hall = 0
+                AND t.day = 26
+                AND t.month = 1
+                AND t.year = 2025)
+            SELECT
+            washers_available,
+            dryers_available,
+            hour,
+            minute
+            FROM
+            cte
+            ORDER BY
+            hour,
+            rn ASC;"""
         )
         
         try:
@@ -83,7 +91,7 @@ def GetWholeDayPrediction(
                         "day": day.day,
                         "month": day.month,
                         "year": day.year,
-                        "current_minute": current_hour * 60 + current_minute
+                        "current_minute": day.minute
                     }
                 ).fetchall()
             print(recent_data)
