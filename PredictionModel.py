@@ -67,15 +67,11 @@ def GetWholeDayPrediction(
                 AND t.year = :year
                 AND t.hour <= :current_hour
             )
-            SELECT :machine_column, hour
+            SELECT washers_avaialble, dryers_available, hour
             FROM cte
             WHERE rn = 1
             ORDER BY hour;"""
         )
-        
-        # Dynamically determine the machine column name based on machineNum
-        # For example, if machineNum is 1, the column might be 'machine1'
-        machine_column = "washers_available" if machineNum == 0 else "dryers_available"
         
         try:
             with db.connect() as conn:
@@ -86,8 +82,7 @@ def GetWholeDayPrediction(
                         "day": day.day,
                         "month": day.month,
                         "year": day.year,
-                        "current_hour": current_hour,
-                        "machine_column": machine_column
+                        "current_hour": current_hour
                     }
                 ).fetchall()
             print(recent_data)
@@ -96,8 +91,8 @@ def GetWholeDayPrediction(
             recent_data = []
         
         # Extract measured hours and their values
-        measured_hours = [row[1] for row in recent_data]
-        measured_values = [row[0] for row in recent_data]
+        measured_hours = [row[2] for row in recent_data]
+        measured_values = [int(row[machineNum]) for row in recent_data]
         
         # Prepare predictions for remaining hours
         remaining_hours = list(range(current_hour + 1, 24))
