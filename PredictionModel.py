@@ -59,7 +59,7 @@ def GetWholeDayPrediction(
         """WITH cte AS (
                 SELECT 
                     t.*,
-                    ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id) AS rn
+                    ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id DESC) AS rn
                 FROM laundry t
                 WHERE t.hall = :hall
                 AND t.day = :day
@@ -70,7 +70,7 @@ def GetWholeDayPrediction(
             SELECT washers_available, dryers_available, hour
             FROM cte
             WHERE rn = 1
-            ORDER BY hour;"""
+            ORDER BY date_added;"""
         )
         
         try:
@@ -241,7 +241,7 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalche
         day_of_week = current_day.weekday()  
         day_name = dayOfWeekDict[day_of_week] 
 
-        for hour in range(23 - datetime.datetime.now(tz).hour if i == 0 else 24):
+        for hour in range(datetime.datetime.now(tz).hour if i == 0 else 0, 24 - datetime.datetime.now(tz).hour if i == 0 else 24):
             data["hall"].append(hall)
             data["month"].append(current_day.month)
             data["weekday"].append(day_of_week)
