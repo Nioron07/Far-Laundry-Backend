@@ -99,7 +99,7 @@ def GetWholeDayPrediction(
             recent_data = []
         
         # Extract measured intervals and their values
-        measured_intervals = [f"{row[2]}:{row[3][0:1]}0" for row in recent_data]
+        measured_intervals = [f"{row[2]}:{str(row[3])[0:1] if str(row[3]).__len__() != 1 else row[3]}0" for row in recent_data]
         measured_values = [int(row[machineNum]) for row in recent_data]
         print(measured_intervals)
         print(measured_values)
