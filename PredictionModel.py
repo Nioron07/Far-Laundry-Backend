@@ -59,16 +59,16 @@ def GetWholeDayPrediction(
         stmt = sqlalchemy.text(
         """WITH cte AS (
                 SELECT 
-                    t.:machine_column,
+                    t.*,
                     ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id) AS rn
                 FROM laundry t
-                WHERE t.hall = 0
-                AND t.day = 25
-                AND t.month = 1
-                AND t.year = 2025
+                WHERE t.hall = :hall
+                AND t.day = :day
+                AND t.month = :month
+                AND t.year = :year
                 AND t.hour <= :current_hour
             )
-            SELECT *
+            SELECT :machine_column
             FROM cte
             WHERE rn = 1
             ORDER BY hour;"""
