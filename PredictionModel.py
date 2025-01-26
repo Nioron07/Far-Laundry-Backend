@@ -67,7 +67,7 @@ def GetWholeDayPrediction(
                 AND t.year = :year
                 AND t.hour <= :current_hour
             )
-            SELECT washers_avaialble, dryers_available, hour
+            SELECT washers_available, dryers_available, hour
             FROM cte
             WHERE rn = 1
             ORDER BY hour;"""
