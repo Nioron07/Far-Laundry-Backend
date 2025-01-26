@@ -68,7 +68,7 @@ def GetWholeDayPrediction(
                 AND t.year = :year
                 AND t.hour <= :current_hour
             )
-            SELECT :machine_column
+            SELECT :machine_column, hour
             FROM cte
             WHERE rn = 1
             ORDER BY hour;"""
@@ -96,8 +96,8 @@ def GetWholeDayPrediction(
             recent_data = []
         
         # Extract measured hours and their values
-        measured_hours = [row['hour'] for row in recent_data]
-        measured_values = [int(row['machine_value']) for row in recent_data]
+        measured_hours = [row[1] for row in recent_data]
+        measured_values = [int(row[0]) for row in recent_data]
         
         # Prepare predictions for remaining hours
         remaining_hours = list(range(current_hour + 1, 24))
