@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import SGDRegressor
 import pytz
 import sqlalchemy
 import logging
@@ -31,11 +32,13 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
 
     #Defines and Fits each of the respective classifiers
-    dtr = RandomForestRegressor(max_depth=10, n_estimators=200, n_jobs=-1)
-    dtr.fit(X_train, y_train)
+    # dtr = RandomForestRegressor(max_depth=10, n_estimators=200, n_jobs=-1)
+    # dtr.fit(X_train, y_train)
+    dtr = SGDRegressor()
+    dtr.partial_fit(X_train, y_train)
     return dtr
 
-def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine, machineNum: int):
+def GetWholeDayPrediction(model: SGDRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine, machineNum: int):
     hours = list(range(24))
     
     data = {
@@ -104,8 +107,8 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
         "High": high_index_str
     }
 
-def GetOptimumTimeDay(washers: RandomForestRegressor, 
-                      dryers: RandomForestRegressor, 
+def GetOptimumTimeDay(washers: SGDRegressor, 
+                      dryers: SGDRegressor, 
                       df: pd.DataFrame) -> str:
     row = df.iloc[0]
     
@@ -128,8 +131,8 @@ def GetOptimumTimeDay(washers: RandomForestRegressor,
     
     return format_hour(best_hour)
 
-def GetOptimumTime(washers: RandomForestRegressor, 
-                   dryers: RandomForestRegressor, 
+def GetOptimumTime(washers: SGDRegressor, 
+                   dryers: SGDRegressor, 
                    hall: str, 
                    startDay: datetime.datetime, 
                    endDay: datetime.datetime, 
@@ -158,7 +161,7 @@ def GetOptimumTime(washers: RandomForestRegressor,
     
     return timeArr
 
-def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
+def GetWholeWeekPrediction(model: SGDRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
     start_day = datetime.datetime.now(tz)
 
     data = {
