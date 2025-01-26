@@ -66,10 +66,10 @@ def GetWholeDayPrediction(
             FROM
                 laundry t
             WHERE
-                t.hall = 0
-                AND t.day = 26
-                AND t.month = 1
-                AND t.year = 2025)
+                t.hall = :hall
+                AND t.day = :day
+                AND t.month = :month
+                AND t.year = :year)
             SELECT
             washers_available,
             dryers_available,
@@ -90,8 +90,7 @@ def GetWholeDayPrediction(
                         "hall": hall,
                         "day": day.day,
                         "month": day.month,
-                        "year": day.year,
-                        "current_minute": day.minute
+                        "year": day.year
                     }
                 ).fetchall()
             print(recent_data)
