@@ -241,7 +241,7 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalche
         day_of_week = current_day.weekday()  
         day_name = dayOfWeekDict[day_of_week] 
 
-        for hour in range(datetime.datetime.now(tz).hour if i == 0 else 0, 24 - datetime.datetime.now(tz).hour if i == 0 else 24):
+        for hour in range(datetime.datetime.now(tz).hour if i == 0 else 0, 24):
             data["hall"].append(hall)
             data["month"].append(current_day.month)
             data["weekday"].append(day_of_week)
