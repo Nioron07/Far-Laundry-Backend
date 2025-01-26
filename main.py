@@ -75,8 +75,8 @@ def day(hall, dayOfMonth, month):
   
 @app.route('/week/<int:hall>', methods = ['GET'])
 def week(hall):
-    return jsonify({'Current Time': PredictionModel.getLabel(), 'Washing Machines': PredictionModel.GetWholeWeekPrediction(washerModel, hall),
-                    "Dryers": PredictionModel.GetWholeWeekPrediction(dryerModel, hall)})
+    return jsonify({'Current Time': PredictionModel.getLabel(), 'Washing Machines': PredictionModel.GetWholeWeekPrediction(washerModel, hall, db, 0),
+                    "Dryers": PredictionModel.GetWholeWeekPrediction(dryerModel, hall, db, 0)})
 @app.route('/optimumTime/<int:hall>/startDay/<int:startDay>/endDay/<int:endDay>/step/<int:step>', methods = ['GET']) 
 def optimumTime(hall, startDay, endDay, step):
     return jsonify({"Optimum Time": PredictionModel.GetOptimumTime(washerModel, dryerModel, hall, datetime.fromtimestamp(startDay / 1000.0), datetime.fromtimestamp(endDay / 1000.0), step)})

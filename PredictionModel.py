@@ -68,6 +68,21 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
             WHERE hall = :hall
             ORDER BY date_added DESC
             LIMIT 1"""
+            # WITH cte AS (
+            #     SELECT 
+            #         t.*,
+            #         ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id) AS rn
+            #     FROM laundry t
+            #     WHERE t.hall = 0
+            #     AND t.day = 25
+            #     AND t.month = 1
+            #     AND t.year = 2025
+            #     AND t.hour <= 20  -- or your upper limit
+            # )
+            # SELECT *
+            # FROM cte
+            # WHERE rn = 1
+            # ORDER BY hour;
         )
         try:
             # Using a with statement ensures that the connection is always released
@@ -143,7 +158,7 @@ def GetOptimumTime(washers: RandomForestRegressor,
     
     return timeArr
 
-def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
+def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
     start_day = datetime.datetime.now(tz)
 
     data = {
@@ -188,7 +203,26 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str):
     predictions = {}
     for i, label in enumerate(full_labels):
         predictions[label] = preds_rounded[i]
-
+    stmt = sqlalchemy.text(
+    """SELECT washers_available, dryers_available, date_added FROM laundry
+        WHERE hall = :hall
+        ORDER BY date_added DESC
+        LIMIT 1"""
+    )
+    try:
+        # Using a with statement ensures that the connection is always released
+        # back into the pool at the end of statement (even if an error occurs)
+        with db.connect() as conn:
+            recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
+            print(recent_data)
+    except Exception as e:
+        # If something goes wrong, handle the error in this section. This might
+        # involve retrying or adjusting parameters depending on the situation.
+        # [START_EXCLUDE]
+        logger.exception(e)
+    print(datetime.datetime.now(tz).hour)
+    print(recent_data)
+    predictions[f"{dayOfWeekDict[datetime.datetime.now(tz).weekday]} {format_hour(datetime.datetime.now(tz).hour)}"] = recent_data[0][machineNum]
     predictions["Low"] = full_labels[min_idx]
     predictions["High"] = full_labels[max_idx]
 
