@@ -93,15 +93,16 @@ def GetWholeDayPrediction(
                         "year": day.year
                     }
                 ).fetchall()
-            print(recent_data)
+            print(recent_data.__len__())
         except Exception as e:
             logger.exception("Error fetching recent data from the database.")
             recent_data = []
         
         # Extract measured intervals and their values
-        measured_intervals = [row[2] for row in recent_data]
+        measured_intervals = [f"{row[2]}:{row[3][0:1]}0" for row in recent_data]
         measured_values = [int(row[machineNum]) for row in recent_data]
-        
+        print(measured_intervals)
+        print(measured_values)
         # Prepare predictions for remaining intervals
         total_intervals = list(range(current_interval + 1, 24 * 6))
         remaining_intervals = [
