@@ -96,6 +96,7 @@ def GetWholeDayPrediction(
             recent_data = []
         
         # Extract measured hours and their values
+        print(recent_data)
         measured_hours = [row[1] for row in recent_data]
         measured_values = [int(row[0]) for row in recent_data]
         
