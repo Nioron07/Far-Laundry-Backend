@@ -50,36 +50,27 @@ def GetWholeDayPrediction(
     
     if is_today:
         current_hour = now.hour
-        current_minute = now.minute
-        current_interval = (current_hour * 60 + current_minute) // 10
     else:
-        current_interval = -1  # Indicates that all intervals need to be predicted
-
-    if is_today and current_interval >= 0:
-        # Query the database for measured data up to the current interval
+        current_hour = -1  # Indicates that all hours need to be predicted
+    
+    if is_today and current_hour >= 0:
+        # Query the database for measured data up to the current hour
         stmt = sqlalchemy.text(
-        """WITH
-            cte AS (
-            SELECT
-                t.*,
-                ROW_NUMBER() OVER (PARTITION BY t.hour, t.minute ORDER BY t.id) AS rn
-            FROM
-                laundry t
-            WHERE
-                t.hall = :hall
+        """WITH cte AS (
+                SELECT 
+                    t.*,
+                    ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id DESC) AS rn
+                FROM laundry t
+                WHERE t.hall = :hall
                 AND t.day = :day
                 AND t.month = :month
-                AND t.year = :year)
-            SELECT
-            washers_available,
-            dryers_available,
-            hour,
-            minute
-            FROM
-            cte
-            ORDER BY
-            hour,
-            rn ASC;"""
+                AND t.year = :year
+                AND t.hour <= :current_hour
+            )
+            SELECT washers_available, dryers_available, hour
+            FROM cte
+            WHERE rn = 1
+            ORDER BY date_added;"""
         )
         
         try:
@@ -90,33 +81,30 @@ def GetWholeDayPrediction(
                         "hall": hall,
                         "day": day.day,
                         "month": day.month,
-                        "year": day.year
+                        "year": day.year,
+                        "current_hour": current_hour
                     }
                 ).fetchall()
-            print(recent_data.__len__())
+            print(recent_data)
         except Exception as e:
             logger.exception("Error fetching recent data from the database.")
             recent_data = []
         
-        # Extract measured intervals and their values
-        measured_intervals = [f"{row[2]}:{str(row[3])[0:1] if str(row[3]).__len__() != 1 else row[3]}0" for row in recent_data]
+        # Extract measured hours and their values
+        measured_hours = [row[2] for row in recent_data]
         measured_values = [int(row[machineNum]) for row in recent_data]
-        print(measured_intervals)
-        print(measured_values)
-        # Prepare predictions for remaining intervals
-        total_intervals = list(range(current_interval + 1, 24 * 6))
-        remaining_intervals = [
-            (i // 6, (i % 6) * 10) for i in total_intervals
-        ]  # Convert back to hours and minutes
-        if remaining_intervals:
+        
+        # Prepare predictions for remaining hours
+        remaining_hours = list(range(current_hour + 1, 24))
+        if remaining_hours:
             data = {
-                "hall": [hall] * len(remaining_intervals),
-                "month": [day.month] * len(remaining_intervals),
-                "weekday": [day.weekday()] * len(remaining_intervals),
-                "hour": [hour for hour, _ in remaining_intervals],
-                "minute": [minute for _, minute in remaining_intervals],
-                "year": [day.year] * len(remaining_intervals),
-                "day": [day.day] * len(remaining_intervals)
+                "hall": [hall] * len(remaining_hours),
+                "month": [day.month] * len(remaining_hours),
+                "weekday": [day.weekday()] * len(remaining_hours),
+                "hour": remaining_hours,
+                "minute": [0] * len(remaining_hours),
+                "year": [day.year] * len(remaining_hours),
+                "day": [day.day] * len(remaining_hours)
             }
             df_predict = pd.DataFrame(data)
             
@@ -125,32 +113,26 @@ def GetWholeDayPrediction(
                 preds_rounded = [int(round(x)) for x in raw_predictions]
             except Exception as e:
                 logger.exception("Error during prediction.")
-                preds_rounded = [0] * len(remaining_intervals)  # Fallback to zeros or handle appropriately
+                preds_rounded = [0] * len(remaining_hours)  # Fallback to zeros or handle appropriately
             
-            predicted_dict = {
-                f"{hour:02}:{minute:02}": pred
-                for (hour, minute), pred in zip(remaining_intervals, preds_rounded)
-            }
+            predicted_dict = {hour: pred for hour, pred in zip(remaining_hours, preds_rounded)}
         else:
             predicted_dict = {}
         
         # Combine measured and predicted data
-        predictions_dict = {
-            f"{interval // 60:02}:{interval % 60:02}": value
-            for interval, value in zip(measured_intervals, measured_values)
-        }
+        predictions_dict = {hour: value for hour, value in zip(measured_hours, measured_values)}
         predictions_dict.update(predicted_dict)
     else:
-        # Predict for all 144 intervals (24 hours × 6 intervals per hour)
-        intervals = [(hour, minute) for hour in range(24) for minute in range(0, 60, 10)]
+        # Predict for all 24 hours
+        hours = list(range(24))
         data = {
-            "hall": [hall] * len(intervals),
-            "month": [day.month] * len(intervals),
-            "weekday": [day.weekday()] * len(intervals),
-            "hour": [hour for hour, _ in intervals],
-            "minute": [minute for _, minute in intervals],
-            "year": [day.year] * len(intervals),
-            "day": [day.day] * len(intervals)
+            "hall": [hall] * 24,
+            "month": [day.month] * 24,
+            "weekday": [day.weekday()] * 24,
+            "hour": hours,
+            "minute": [0] * 24,
+            "year": [day.year] * 24,
+            "day": [day.day] * 24
         }
         df = pd.DataFrame(data)
         
@@ -159,12 +141,9 @@ def GetWholeDayPrediction(
             preds_rounded = [int(round(x)) for x in raw_predictions]
         except Exception as e:
             logger.exception("Error during prediction.")
-            preds_rounded = [0] * len(intervals)  # Fallback to zeros or handle appropriately
+            preds_rounded = [0] * 24  # Fallback to zeros or handle appropriately
         
-        predictions_dict = {
-            f"{hour:02}:{minute:02}": pred
-            for (hour, minute), pred in zip(intervals, preds_rounded)
-        }
+        predictions_dict = {hour: pred for hour, pred in zip(hours, preds_rounded)}
     
     if predictions_dict:
         # Determine minimum and maximum predictions
@@ -172,16 +151,12 @@ def GetWholeDayPrediction(
         max_val = max(predictions_dict.values())
         
         # Find the first occurrence of min and max
-        min_intervals = [
-            interval for interval, val in predictions_dict.items() if val == min_val
-        ]
-        max_intervals = [
-            interval for interval, val in predictions_dict.items() if val == max_val
-        ]
+        min_hours = [hour for hour, val in predictions_dict.items() if val == min_val]
+        max_hours = [hour for hour, val in predictions_dict.items() if val == max_val]
         
-        # Format the first min and max intervals
-        low_index_str = min_intervals[0] if min_intervals else "N/A"
-        high_index_str = max_intervals[0] if max_intervals else "N/A"
+        # Format the first min and max hours
+        low_index_str = format_hour(min_hours[0]) if min_hours else "N/A"
+        high_index_str = format_hour(max_hours[0]) if max_hours else "N/A"
     else:
         min_val = max_val = 0
         low_index_str = high_index_str = "N/A"
@@ -191,6 +166,7 @@ def GetWholeDayPrediction(
         "Low": low_index_str,
         "High": high_index_str
     }
+
 def GetOptimumTimeDay(washers: RandomForestRegressor, 
                       dryers: RandomForestRegressor, 
                       df: pd.DataFrame) -> str:
@@ -213,7 +189,7 @@ def GetOptimumTimeDay(washers: RandomForestRegressor,
     
     best_hour = int(np.argmax(avg_preds))
     
-    return format_hour(best_hour,0)
+    return format_hour(best_hour)
 
 def GetOptimumTime(washers: RandomForestRegressor, 
                    dryers: RandomForestRegressor, 
@@ -395,8 +371,9 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalche
 
 
 def format_hour(hour):
-    period = "AM" if hour < 12 else "PM"
-    hour_formatted = 12 if hour % 12 == 0 else hour % 12
+    hour_int = int(hour)  
+    period = "AM" if hour_int < 12 else "PM"
+    hour_formatted = 12 if hour_int % 12 == 0 else hour_int % 12  
     return f"{hour_formatted}:00{period}"
 
 def getLabel():
