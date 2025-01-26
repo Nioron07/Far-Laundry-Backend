@@ -21,7 +21,7 @@ def Retrain():
     washerModel = PredictionModel.CreateModel("washers", db)
     dryerModel = PredictionModel.CreateModel("dryers", db)
     print("Retrained")
-    threading.Timer(86400.0, Retrain).start()
+    threading.Timer(3600.0, Retrain).start()
 Retrain()
 # creating a Flask app 
 app = Flask(__name__)
@@ -49,7 +49,6 @@ def current(hall):
         # back into the pool at the end of statement (even if an error occurs)
         with db.connect() as conn:
             recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
-            print(recent_data)
     except Exception as e:
         # If something goes wrong, handle the error in this section. This might
         # involve retrying or adjusting parameters depending on the situation.

@@ -22,7 +22,6 @@ tz = pytz.timezone("US/Central")
 def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     query = "SELECT * FROM laundry;"
     df = pd.read_sql(query, con=db)
-    print(df)
     #Assigns Independent and Dependent variables in the form of X and y
     X = df.drop(["washers_available", "dryers_available", "date_added", "id"], axis = 1)
     y = df[f"{machineType}_available"]
@@ -91,14 +90,14 @@ def GetWholeDayPrediction(
                         "machine_column": machine_column
                     }
                 ).fetchall()
+            print(recent_data)
         except Exception as e:
             logger.exception("Error fetching recent data from the database.")
             recent_data = []
         
         # Extract measured hours and their values
-        print(recent_data)
         measured_hours = [row[1] for row in recent_data]
-        measured_values = [int(row[0]) for row in recent_data]
+        measured_values = [row[0] for row in recent_data]
         
         # Prepare predictions for remaining hours
         remaining_hours = list(range(current_hour + 1, 24))
