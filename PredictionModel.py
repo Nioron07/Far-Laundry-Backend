@@ -223,72 +223,150 @@ def GetOptimumTime(washers: RandomForestRegressor,
 
 def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
     start_day = datetime.datetime.now(tz)
-
+    
     data = {
-            "hall": [],
-            "month":      [],
-            "weekday":    [],
-            "hour":       [],
-            "minute": [],
-            "year": [],
-            "day": [],
+        "hall": [],
+        "month": [],
+        "weekday": [],
+        "hour": [],
+        "minute": [],
+        "year": [],
+        "day": [],
     }
-
+    
     full_labels = []
-
+    combined_predictions = {}
+    
+    now = datetime.datetime.now(tz)
+    
     for i in range(7):
         current_day = start_day + datetime.timedelta(days=i)
-        day_of_week = current_day.weekday()  
-        day_name = dayOfWeekDict[day_of_week] 
-
-        for hour in range(datetime.datetime.now(tz).hour if i == 0 else 0, 24):
-            data["hall"].append(hall)
-            data["month"].append(current_day.month)
-            data["weekday"].append(day_of_week)
-            data["hour"].append(hour)
-            data["minute"].append(0)
-            data["year"].append(current_day.year)
-            data["day"].append(current_day.day)
-
-            full_labels.append(f"{day_name} {format_hour(hour)}")
-
-    df = pd.DataFrame(data)
-
-    raw_predictions = model.predict(df)
-
-    preds_rounded = [int(round(x)) for x in raw_predictions]
-
-    min_val = min(preds_rounded)
-    max_val = max(preds_rounded)
-    min_idx = preds_rounded.index(min_val)
-    max_idx = preds_rounded.index(max_val)
-
-    predictions = {}
-    for i, label in enumerate(full_labels):
-        predictions[label] = preds_rounded[i]
-    stmt = sqlalchemy.text(
-    """SELECT washers_available, dryers_available, date_added FROM laundry
-        WHERE hall = :hall
-        ORDER BY date_added DESC
-        LIMIT 1"""
-    )
-    try:
-        # Using a with statement ensures that the connection is always released
-        # back into the pool at the end of statement (even if an error occurs)
-        with db.connect() as conn:
-            recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
-            print(recent_data)
-    except Exception as e:
-        # If something goes wrong, handle the error in this section. This might
-        # involve retrying or adjusting parameters depending on the situation.
-        # [START_EXCLUDE]
-        logger.exception(e)
-    print(datetime.datetime.now(tz).hour)
-    print(recent_data)
-    predictions[f"{dayOfWeekDict[datetime.datetime.now(tz).weekday()]} {format_hour(datetime.datetime.now(tz).hour)}"] = recent_data[0][machineNum]
-    predictions["Low"] = full_labels[min_idx]
-    predictions["High"] = full_labels[max_idx]
-
+        day_of_week = current_day.weekday()
+        day_name = dayOfWeekDict.get(day_of_week, "Unknown")
+        
+        is_today = (
+            current_day.year == now.year and
+            current_day.month == now.month and
+            current_day.day == now.day
+        )
+        
+        if is_today:
+            current_hour = now.hour
+            # Fetch measured data up to current_hour
+            stmt = sqlalchemy.text(
+                """WITH cte AS (
+                        SELECT 
+                            t.*,
+                            ROW_NUMBER() OVER (PARTITION BY t.hour ORDER BY t.id DESC) AS rn
+                        FROM laundry t
+                        WHERE t.hall = :hall
+                        AND t.day = :day
+                        AND t.month = :month
+                        AND t.year = :year
+                        AND t.hour <= :current_hour
+                    )
+                    SELECT washers_available, dryers_available, hour
+                    FROM cte
+                    WHERE rn = 1
+                    ORDER BY hour;"""
+            )
+            
+            try:
+                with db.connect() as conn:
+                    recent_data = conn.execute(
+                        stmt,
+                        parameters={
+                            "hall": hall,
+                            "day": current_day.day,
+                            "month": current_day.month,
+                            "year": current_day.year,
+                            "current_hour": current_hour
+                        }
+                    ).fetchall()
+                logger.debug(f"Fetched recent data for {day_name}: {recent_data}")
+            except Exception as e:
+                logger.exception(f"Error fetching recent data for {day_name} from the database.")
+                recent_data = []
+            
+            # Process measured data
+            measured_hours = [row[2] for row in recent_data]
+            measured_values = [int(row[machineNum]) for row in recent_data]
+            
+            for hour, value in zip(measured_hours, measured_values):
+                label = f"{day_name} {format_hour(hour)}"
+                combined_predictions[label] = value
+                full_labels.append(label)
+            
+            # Prepare prediction data for remaining hours
+            remaining_hours = list(range(current_hour + 1, 24))
+            if remaining_hours:
+                predict_data = {
+                    "hall": [hall] * len(remaining_hours),
+                    "month": [current_day.month] * len(remaining_hours),
+                    "weekday": [day_of_week] * len(remaining_hours),
+                    "hour": remaining_hours,
+                    "minute": [0] * len(remaining_hours),
+                    "year": [current_day.year] * len(remaining_hours),
+                    "day": [current_day.day] * len(remaining_hours)
+                }
+                df_predict = pd.DataFrame(predict_data)
+                
+                try:
+                    raw_predictions = model.predict(df_predict)
+                    preds_rounded = [int(round(x)) for x in raw_predictions]
+                    logger.debug(f"Predictions for future hours on {day_name}: {preds_rounded}")
+                except Exception as e:
+                    logger.exception(f"Error during prediction for {day_name}.")
+                    preds_rounded = [0] * len(remaining_hours)  # Fallback to zeros or handle appropriately
+                
+                for hour, pred in zip(remaining_hours, preds_rounded):
+                    label = f"{day_name} {format_hour(hour)}"
+                    combined_predictions[label] = pred
+                    full_labels.append(label)
+        else:
+            # Predict all 24 hours for days other than today
+            hours = list(range(24))
+            predict_data = {
+                "hall": [hall] * 24,
+                "month": [current_day.month] * 24,
+                "weekday": [day_of_week] * 24,
+                "hour": hours,
+                "minute": [0] * 24,
+                "year": [current_day.year] * 24,
+                "day": [current_day.day] * 24
+            }
+            df = pd.DataFrame(predict_data)
+            
+            try:
+                raw_predictions = model.predict(df)
+                preds_rounded = [int(round(x)) for x in raw_predictions]
+                logger.debug(f"Predictions for {day_name}: {preds_rounded}")
+            except Exception as e:
+                logger.exception(f"Error during prediction for {day_name}.")
+                preds_rounded = [0] * 24  # Fallback to zeros or handle appropriately
+            
+            for hour, pred in zip(hours, preds_rounded):
+                label = f"{day_name} {format_hour(hour)}"
+                combined_predictions[label] = pred
+                full_labels.append(label)
+    
+    # Determine minimum and maximum predictions
+    if combined_predictions:
+        min_val = min(combined_predictions.values())
+        max_val = max(combined_predictions.values())
+        
+        # Find the first occurrence of min and max
+        min_label = next((label for label in full_labels if combined_predictions[label] == min_val), "N/A")
+        max_label = next((label for label in full_labels if combined_predictions[label] == max_val), "N/A")
+    else:
+        min_val = max_val = 0
+        min_label = max_label = "N/A"
+    
+    # Prepare the final predictions dictionary
+    predictions = {label: combined_predictions[label] for label in full_labels}
+    predictions["Low"] = min_label
+    predictions["High"] = max_label
+    
     return predictions
 
 
