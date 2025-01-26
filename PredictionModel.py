@@ -222,7 +222,7 @@ def GetWholeWeekPrediction(model: RandomForestRegressor, hall: str, db: sqlalche
         logger.exception(e)
     print(datetime.datetime.now(tz).hour)
     print(recent_data)
-    predictions[f"{dayOfWeekDict[datetime.datetime.now(tz).weekday]} {format_hour(datetime.datetime.now(tz).hour)}"] = recent_data[0][machineNum]
+    predictions[f"{dayOfWeekDict[datetime.datetime.now(tz).weekday()]} {format_hour(datetime.datetime.now(tz).hour)}"] = recent_data[0][machineNum]
     predictions["Low"] = full_labels[min_idx]
     predictions["High"] = full_labels[max_idx]
 
