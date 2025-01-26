@@ -62,7 +62,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     low_index_str = format_hour(hours[min_idx])
     high_index_str = format_hour(hours[max_idx])
 
-    if day.day == datetime.datetime.now(tz).day:
+    if day.day == datetime.datetime.now(tz).day and day.month == datetime.datetime.now(tz).month and day.year == datetime.datetime.now(tz).year:
         stmt = sqlalchemy.text(
         """SELECT washers_available, dryers_available, date_added FROM laundry
             WHERE hall = :hall
