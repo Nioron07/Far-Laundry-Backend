@@ -64,7 +64,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
 
     if day.day == datetime.datetime.now(tz).day:
         stmt = sqlalchemy.text(
-            """SELECT :machine
+            """SELECT :machine FROM laundry
                 WHERE hall = :hall
                 ORDER BY date_added DESC
                 LIMIT 1"""
