@@ -81,8 +81,8 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
             # [START_EXCLUDE]
             logger.exception(e)
         print({datetime.datetime.now().hour})
-        print(recent_data[0][0])
-        predictions_dict[f"{datetime.datetime.now().hour}"] = recent_data[0][0]
+        print(recent_data[0])
+        predictions_dict[f"{datetime.datetime.now().hour}"] = recent_data[0]
     return {
         "Predictions": predictions_dict,
         "Low": low_index_str,
