@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import SGDRegressor
+from sklearn.linear_model import PassiveAggressiveRegressor
 import pytz
 import sqlalchemy
 import logging
@@ -34,11 +34,11 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     #Defines and Fits each of the respective classifiers
     # dtr = RandomForestRegressor(max_depth=10, n_estimators=200, n_jobs=-1)
     # dtr.fit(X_train, y_train)
-    dtr = SGDRegressor()
+    dtr = PassiveAggressiveRegressor()
     dtr.partial_fit(X_train, y_train)
     return dtr
 
-def GetWholeDayPrediction(model: SGDRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine, machineNum: int):
+def GetWholeDayPrediction(model: PassiveAggressiveRegressor, hall: str, day: datetime, db: sqlalchemy.engine.base.Engine, machineNum: int):
     hours = list(range(24))
     
     data = {
@@ -107,8 +107,8 @@ def GetWholeDayPrediction(model: SGDRegressor, hall: str, day: datetime, db: sql
         "High": high_index_str
     }
 
-def GetOptimumTimeDay(washers: SGDRegressor, 
-                      dryers: SGDRegressor, 
+def GetOptimumTimeDay(washers: PassiveAggressiveRegressor, 
+                      dryers: PassiveAggressiveRegressor, 
                       df: pd.DataFrame) -> str:
     row = df.iloc[0]
     
@@ -131,8 +131,8 @@ def GetOptimumTimeDay(washers: SGDRegressor,
     
     return format_hour(best_hour)
 
-def GetOptimumTime(washers: SGDRegressor, 
-                   dryers: SGDRegressor, 
+def GetOptimumTime(washers: PassiveAggressiveRegressor, 
+                   dryers: PassiveAggressiveRegressor, 
                    hall: str, 
                    startDay: datetime.datetime, 
                    endDay: datetime.datetime, 
@@ -161,7 +161,7 @@ def GetOptimumTime(washers: SGDRegressor,
     
     return timeArr
 
-def GetWholeWeekPrediction(model: SGDRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
+def GetWholeWeekPrediction(model: PassiveAggressiveRegressor, hall: str, db: sqlalchemy.engine.base.Engine, machineNum: int):
     start_day = datetime.datetime.now(tz)
 
     data = {
