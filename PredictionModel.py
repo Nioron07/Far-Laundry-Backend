@@ -62,7 +62,7 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
     low_index_str = format_hour(hours[min_idx])
     high_index_str = format_hour(hours[max_idx])
 
-    if day.day == datetime.datetime.now().day:
+    if day.day == datetime.datetime.now(tz).day:
         stmt = sqlalchemy.text(
             """SELECT :machine
                 WHERE hall = :hall
@@ -80,8 +80,8 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
             # involve retrying or adjusting parameters depending on the situation.
             # [START_EXCLUDE]
             logger.exception(e)
-            print({datetime.datetime.now().hour})
-            print(recent_data[0][machineNum])
+        print({datetime.datetime.now().hour})
+        print(recent_data[0][machineNum])
         predictions_dict[f"{datetime.datetime.now().hour}"] = recent_data[0][0]
     return {
         "Predictions": predictions_dict,
