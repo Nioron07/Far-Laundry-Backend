@@ -64,16 +64,16 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
 
     if day.day == datetime.datetime.now(tz).day:
         stmt = sqlalchemy.text(
-            """SELECT :machine FROM laundry
-                WHERE hall = :hall
-                ORDER BY date_added DESC
-                LIMIT 1"""
+        """SELECT washers_available, dryers_available, date_added FROM laundry
+            WHERE hall = :hall
+            ORDER BY date_added DESC
+            LIMIT 1"""
         )
         try:
             # Using a with statement ensures that the connection is always released
             # back into the pool at the end of statement (even if an error occurs)
             with db.connect() as conn:
-                recent_data = conn.execute(stmt, parameters={"hall": hall, "machine": "washers_available" if machineNum == 0 else "dryers_available"}).fetchall()
+                recent_data = conn.execute(stmt, parameters={"hall": hall}).fetchall()
                 print(recent_data)
         except Exception as e:
             # If something goes wrong, handle the error in this section. This might
@@ -81,8 +81,8 @@ def GetWholeDayPrediction(model: RandomForestRegressor, hall: str, day: datetime
             # [START_EXCLUDE]
             logger.exception(e)
         print(datetime.datetime.now(tz).hour)
-        print(recent_data[0])
-        predictions_dict[f"{datetime.datetime.now(tz).hour}"] = recent_data[0]
+        print(recent_data)
+        predictions_dict[f"{datetime.datetime.now(tz).hour}"] = recent_data[0][machineNum]
     return {
         "Predictions": predictions_dict,
         "Low": low_index_str,
