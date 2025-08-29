@@ -45,7 +45,13 @@ def load_model(model_name: str) -> RandomForestRegressor:
         raise Exception(f"Model {model_name} not found")
 
 def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
-    """Create and train model with all available data"""
+    """Create and train model with all available data - enhanced error handling"""
+    print(f"Starting CreateModel for {machineType}")
+    logger.info(f"Starting model creation for {machineType}")
+    
+    if db is None:
+        raise Exception("Database connection is None")
+    
     query = """
         SELECT hall, month, weekday, hour, minute, year, day, washers_available, dryers_available
         FROM laundry
@@ -53,40 +59,117 @@ def CreateModel(machineType: str, db: sqlalchemy.engine.base.Engine):
     """
     
     try:
-        df = pd.read_sql(query, con=db)
-        logger.info(f"Loaded {len(df)} records for training")
+        print(f"Executing database query for {machineType} training data...")
+        with db.connect() as conn:
+            df = pd.read_sql(query, con=conn)
+        
+        print(f"Query completed. Loaded {len(df)} records for {machineType} training")
+        logger.info(f"Loaded {len(df)} records for {machineType} training")
+        
     except Exception as e:
-        logger.exception("Failed to load training data")
-        raise
+        print(f"FAILED to load training data for {machineType}: {e}")
+        logger.exception(f"Failed to load training data for {machineType}")
+        raise Exception(f"Database query failed for {machineType}: {e}")
     
     if df.empty:
-        raise Exception("No training data available")
+        error_msg = f"No training data available for {machineType}"
+        print(error_msg)
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    
+    # Check for required columns
+    required_columns = ["hall", "month", "weekday", "hour", "minute", "year", "day", f"{machineType}_available"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        error_msg = f"Missing required columns for {machineType}: {missing_columns}"
+        print(error_msg)
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    
+    # Check data quality
+    print(f"Data validation for {machineType}:")
+    print(f"  - Shape: {df.shape}")
+    print(f"  - Date range: {df.index.min() if not df.empty else 'N/A'} to {df.index.max() if not df.empty else 'N/A'}")
+    print(f"  - Unique halls: {df['hall'].nunique()}")
+    print(f"  - Target column ({machineType}_available) stats:")
+    target_col = f"{machineType}_available"
+    if target_col in df.columns:
+        print(f"    * Min: {df[target_col].min()}")
+        print(f"    * Max: {df[target_col].max()}")
+        print(f"    * Mean: {df[target_col].mean():.2f}")
+        print(f"    * Null values: {df[target_col].isnull().sum()}")
     
     # Prepare features and target
     feature_columns = ["hall", "month", "weekday", "hour", "minute", "year", "day"]
     X = df[feature_columns]
     y = df[f"{machineType}_available"]
     
-    # Train-test split with fixed random state for reproducibility
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    print(f"Features shape: {X.shape}, Target shape: {y.shape}")
     
-    # Keep your original hyperparameters
-    rf = RandomForestRegressor(
-        n_estimators=300,  # Your original value
-        max_depth=10,      # Your original value
-        min_samples_split=5,
-        min_samples_leaf=2,
-        n_jobs=-1,
-        random_state=42
-    )
+    # Check for NaN values
+    if X.isnull().sum().sum() > 0 or y.isnull().sum() > 0:
+        print(f"WARNING: Found NaN values in {machineType} data")
+        print(f"Features NaN: {X.isnull().sum().sum()}")
+        print(f"Target NaN: {y.isnull().sum()}")
+        # Drop NaN values
+        mask = ~(X.isnull().any(axis=1) | y.isnull())
+        X = X[mask]
+        y = y[mask]
+        print(f"After dropping NaN - Features: {X.shape}, Target: {y.shape}")
     
-    rf.fit(X_train, y_train)
+    try:
+        # Train-test split with fixed random state for reproducibility
+        print(f"Performing train-test split for {machineType}...")
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        print(f"Training set size: {len(X_train)}, Test set size: {len(X_test)}")
+        
+    except Exception as e:
+        print(f"FAILED during train-test split for {machineType}: {e}")
+        logger.exception(f"Train-test split failed for {machineType}")
+        raise Exception(f"Train-test split failed for {machineType}: {e}")
     
-    # Log training score for monitoring
-    train_score = rf.score(X_train, y_train)
-    test_score = rf.score(X_test, y_test)
-    logger.info(f"{machineType} model - Train score: {train_score:.3f}, Test score: {test_score:.3f}")
+    try:
+        print(f"Creating RandomForestRegressor for {machineType}...")
+        # Keep your original hyperparameters
+        rf = RandomForestRegressor(
+            n_estimators=300,  # Your original value
+            max_depth=10,      # Your original value
+            min_samples_split=5,
+            min_samples_leaf=2,
+            n_jobs=-1,
+            random_state=42
+        )
+        
+        print(f"Starting model training for {machineType}...")
+        rf.fit(X_train, y_train)
+        print(f"Model training completed for {machineType}")
+        
+    except Exception as e:
+        print(f"FAILED during model training for {machineType}: {e}")
+        logger.exception(f"Model training failed for {machineType}")
+        raise Exception(f"Model training failed for {machineType}: {e}")
     
+    try:
+        # Log training score for monitoring
+        train_score = rf.score(X_train, y_train)
+        test_score = rf.score(X_test, y_test)
+        print(f"{machineType} model performance:")
+        print(f"  - Train score: {train_score:.3f}")
+        print(f"  - Test score: {test_score:.3f}")
+        logger.info(f"{machineType} model - Train score: {train_score:.3f}, Test score: {test_score:.3f}")
+        
+        # Basic validation
+        if train_score < 0.1:
+            print(f"WARNING: Very low training score for {machineType}: {train_score}")
+        if test_score < 0.1:
+            print(f"WARNING: Very low test score for {machineType}: {test_score}")
+            
+    except Exception as e:
+        print(f"WARNING: Could not calculate model scores for {machineType}: {e}")
+        logger.warning(f"Could not calculate model scores for {machineType}: {e}")
+    
+    print(f"Successfully created {machineType} model")
+    logger.info(f"Successfully created {machineType} model")
     return rf
 
 def calculate_statistics(predictions):
@@ -493,3 +576,4 @@ def GetOptimumTime(washers: RandomForestRegressor,
         iterDate += datetime.timedelta(days=step)
     
     return timeArr
+

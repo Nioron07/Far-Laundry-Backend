@@ -39,18 +39,38 @@ def load_models():
         washerModel = PredictionModel.load_model("washers")
         dryerModel = PredictionModel.load_model("dryers")
         print("Loaded pre-trained models successfully")
+        logger.info("Pre-trained models loaded successfully")
     except Exception as load_error:
         print(f"Failed to load pre-trained models: {load_error}")
+        logger.warning(f"Failed to load pre-trained models: {load_error}")
         print("Training new models...")
+        logger.info("Starting model training from scratch")
+        
         try:
+            # Test database connection first
+            db_conn = initialize_db()
+            if db_conn is None:
+                raise Exception("Database connection is None")
+            
+            # Test basic query
+            with db_conn.connect() as conn:
+                test_result = conn.execute(sqlalchemy.text("SELECT COUNT(*) FROM laundry LIMIT 1")).fetchone()
+                record_count = test_result[0] if test_result else 0
+                print(f"Found {record_count} records in database for training")
+                logger.info(f"Database check passed: {record_count} records available")
+                
+                if record_count == 0:
+                    raise Exception("No training data available in database")
+            
             train_models()
+            
         except Exception as train_error:
-            print(f"Failed to train new models: {train_error}")
-            logger.exception("Critical failure: Cannot load or train models")
+            print(f"CRITICAL: Failed to train new models: {train_error}")
+            logger.exception("CRITICAL: Model training failed completely")
             # Set models to None to indicate failure
             washerModel = None
             dryerModel = None
-            raise Exception("Model initialization completely failed")
+            raise Exception(f"Model initialization completely failed: {train_error}")
 
 def train_models():
     """Train new models and save them"""
@@ -58,19 +78,36 @@ def train_models():
     
     with model_lock:
         db_conn = initialize_db()
-        print("Training models...")
+        print("Starting model training process...")
+        logger.info("Beginning model training with database connection")
+        
         try:
+            # Train washer model
+            print("Training washer model...")
             washerModel = PredictionModel.CreateModel("washers", db_conn)
+            print("Washer model training completed")
+            logger.info("Washer model trained successfully")
+            
+            # Train dryer model  
+            print("Training dryer model...")
             dryerModel = PredictionModel.CreateModel("dryers", db_conn)
+            print("Dryer model training completed")
+            logger.info("Dryer model trained successfully")
             
             # Save models to disk
+            print("Saving models to disk...")
             PredictionModel.save_model(washerModel, "washers")
             PredictionModel.save_model(dryerModel, "dryers")
             print("Models trained and saved successfully")
+            logger.info("All models trained and saved successfully")
+            
         except Exception as e:
-            print(f"Training failed: {e}")
-            logger.exception("Model training failed")
+            print(f"Training failed with error: {e}")
+            logger.exception("Detailed model training failure")
+            # Re-raise to be caught by load_models
             raise
+
+
 
 def should_retrain():
     """Check if it's time to retrain (between midnight and 2 AM)"""
@@ -97,16 +134,31 @@ def schedule_retraining():
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
 
-# Initialize models on startup (async to not block startup)
 def async_model_init():
     try:
+        print("=== STARTING MODEL INITIALIZATION ===")
+        logger.info("Starting async model initialization")
+        
         load_models()
         schedule_retraining()
-        print("Model initialization completed successfully")
+        
+        print("=== MODEL INITIALIZATION COMPLETED SUCCESSFULLY ===")
+        logger.info("Model initialization completed successfully")
+        
+        # Verify models are actually loaded
+        if washerModel is None or dryerModel is None:
+            raise Exception("Models are None after initialization")
+            
+        print(f"Final check - Washer model: {type(washerModel)}, Dryer model: {type(dryerModel)}")
+        
     except Exception as e:
-        print(f"Model initialization failed: {e}")
-        logger.exception("Failed to initialize models")
-
+        print(f"=== MODEL INITIALIZATION FAILED: {e} ===")
+        logger.exception("CRITICAL: Failed to initialize models")
+        
+        # Set global state to indicate failure
+        global washerModel, dryerModel
+        washerModel = None
+        dryerModel = None
 # Start model initialization in background
 init_thread = threading.Thread(target=async_model_init, daemon=True)
 init_thread.start()
@@ -471,7 +523,6 @@ def startup_check():
             'imports_working': False,
             'timestamp': datetime.now(tz).isoformat()
         }), 500
-
 # driver function 
 if __name__ == '__main__': 
     app.run(debug=True)
