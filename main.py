@@ -4,7 +4,8 @@ from flask import Flask, jsonify, request, make_response
 import flask_cors
 import PredictionModel
 import SQLConnect
-from datetime import datetime, time as dt_time
+from datetime import datetime
+import pandas as pd
 import threading
 import pytz
 import logging
@@ -523,6 +524,156 @@ def startup_check():
             'error': str(e),
             'imports_working': False,
             'timestamp': datetime.now(tz).isoformat()
+        }), 500
+    
+@app.route('/debug', methods=['GET'])
+def debug():
+    """Comprehensive debug information"""
+    import os
+    global washerModel, dryerModel, db, init_thread
+    
+    debug_info = {
+        'timestamp': datetime.now(tz).isoformat(),
+        'models': {
+            'washer_loaded': washerModel is not None,
+            'dryer_loaded': dryerModel is not None,
+            'washer_type': str(type(washerModel)) if washerModel else None,
+            'dryer_type': str(type(dryerModel)) if dryerModel else None
+        },
+        'database': {
+            'db_object_exists': db is not None,
+            'connection_test': False,
+            'record_count': 0,
+            'connection_error': None
+        },
+        'initialization': {
+            'init_thread_alive': init_thread.is_alive() if 'init_thread' in globals() else False,
+            'thread_name': init_thread.name if 'init_thread' in globals() else None
+        },
+        'environment': {
+            'db_name_set': 'DB_NAME' in os.environ,
+            'db_user_set': 'DB_USER' in os.environ,
+            'db_pass_set': 'DB_PASS' in os.environ,
+            'instance_connection_name_set': 'INSTANCE_CONNECTION_NAME' in os.environ,
+            'private_ip_set': 'PRIVATE_IP' in os.environ
+        },
+        'file_system': {
+            'models_dir_exists': os.path.exists('models'),
+            'current_working_directory': os.getcwd(),
+            'files_in_cwd': os.listdir('.') if os.path.exists('.') else []
+        }
+    }
+    
+    # Test database connection with detailed error reporting
+    try:
+        test_db = initialize_db()
+        if test_db:
+            debug_info['database']['db_object_exists'] = True
+            with test_db.connect() as conn:
+                # Test basic connection
+                conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
+                debug_info['database']['connection_test'] = True
+                
+                # Get record count
+                result = conn.execute(sqlalchemy.text("SELECT COUNT(*) FROM laundry")).fetchone()
+                debug_info['database']['record_count'] = result[0] if result else 0
+                
+                # Get sample data structure
+                sample_result = conn.execute(sqlalchemy.text("SELECT * FROM laundry LIMIT 1")).fetchone()
+                if sample_result:
+                    debug_info['database']['sample_columns'] = list(sample_result._mapping.keys())
+                
+                # Check for required columns
+                columns_result = conn.execute(sqlalchemy.text("SHOW COLUMNS FROM laundry")).fetchall()
+                debug_info['database']['table_columns'] = [row[0] for row in columns_result]
+                
+    except Exception as e:
+        debug_info['database']['connection_error'] = str(e)
+        debug_info['database']['connection_test'] = False
+        logger.exception("Debug database connection failed")
+    
+    # Test model loading attempt
+    debug_info['model_loading_test'] = {}
+    try:
+        # Try to load existing models
+        try:
+            test_washer = PredictionModel.load_model("washers")
+            debug_info['model_loading_test']['washer_load'] = 'success'
+        except Exception as e:
+            debug_info['model_loading_test']['washer_load'] = f'failed: {str(e)}'
+        
+        try:
+            test_dryer = PredictionModel.load_model("dryers")
+            debug_info['model_loading_test']['dryer_load'] = 'success'
+        except Exception as e:
+            debug_info['model_loading_test']['dryer_load'] = f'failed: {str(e)}'
+            
+    except Exception as e:
+        debug_info['model_loading_test']['general_error'] = str(e)
+    
+    # Test model creation with sample data (if database works)
+    if debug_info['database']['connection_test'] and debug_info['database']['record_count'] > 0:
+        debug_info['model_creation_test'] = {}
+        try:
+            test_db = initialize_db()
+            # Try just the data loading part
+            query = """
+                SELECT hall, month, weekday, hour, minute, year, day, washers_available, dryers_available
+                FROM laundry
+                LIMIT 100
+            """
+            with test_db.connect() as conn:
+                df = pd.read_sql(query, con=conn)
+                debug_info['model_creation_test']['data_load'] = f'success: {len(df)} rows'
+                debug_info['model_creation_test']['data_shape'] = str(df.shape)
+                debug_info['model_creation_test']['columns'] = list(df.columns)
+                
+                # Check data types
+                debug_info['model_creation_test']['data_types'] = {col: str(dtype) for col, dtype in df.dtypes.items()}
+                
+                # Check for null values
+                debug_info['model_creation_test']['null_counts'] = {col: int(df[col].isnull().sum()) for col in df.columns}
+                
+        except Exception as e:
+            debug_info['model_creation_test']['data_load_error'] = str(e)
+    
+    return jsonify(debug_info)
+
+@app.route('/force-retrain', methods=['POST'])
+def force_retrain():
+    """Force a model retraining attempt with detailed logging"""
+    global washerModel, dryerModel
+    
+    try:
+        print("=== FORCE RETRAIN STARTED ===")
+        logger.info("Force retrain endpoint called")
+        
+        # Reset models
+        washerModel = None
+        dryerModel = None
+        
+        # Attempt training
+        load_models()
+        
+        success = washerModel is not None and dryerModel is not None
+        
+        response = {
+            'success': success,
+            'washer_model_loaded': washerModel is not None,
+            'dryer_model_loaded': dryerModel is not None,
+            'message': 'Training completed successfully' if success else 'Training failed'
+        }
+        
+        print(f"=== FORCE RETRAIN COMPLETED: {success} ===")
+        return jsonify(response), 200 if success else 500
+        
+    except Exception as e:
+        print(f"=== FORCE RETRAIN FAILED: {e} ===")
+        logger.exception("Force retrain failed")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Training failed with exception'
         }), 500
 # driver function 
 if __name__ == '__main__': 
