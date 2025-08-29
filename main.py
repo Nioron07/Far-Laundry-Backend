@@ -35,14 +35,22 @@ def load_models():
     global washerModel, dryerModel
     
     try:
-        # Try to load pre-trained models (implement model persistence)
+        # Try to load pre-trained models
         washerModel = PredictionModel.load_model("washers")
         dryerModel = PredictionModel.load_model("dryers")
-        print("Loaded pre-trained models")
-    except:
-        # Fall back to training new models
-        print("No pre-trained models found, training new ones...")
-        train_models()
+        print("Loaded pre-trained models successfully")
+    except Exception as load_error:
+        print(f"Failed to load pre-trained models: {load_error}")
+        print("Training new models...")
+        try:
+            train_models()
+        except Exception as train_error:
+            print(f"Failed to train new models: {train_error}")
+            logger.exception("Critical failure: Cannot load or train models")
+            # Set models to None to indicate failure
+            washerModel = None
+            dryerModel = None
+            raise Exception("Model initialization completely failed")
 
 def train_models():
     """Train new models and save them"""
@@ -51,13 +59,18 @@ def train_models():
     with model_lock:
         db_conn = initialize_db()
         print("Training models...")
-        washerModel = PredictionModel.CreateModel("washers", db_conn)
-        dryerModel = PredictionModel.CreateModel("dryers", db_conn)
-        
-        # Save models to disk (implement model persistence)
-        PredictionModel.save_model(washerModel, "washers")
-        PredictionModel.save_model(dryerModel, "dryers")
-        print("Models trained and saved")
+        try:
+            washerModel = PredictionModel.CreateModel("washers", db_conn)
+            dryerModel = PredictionModel.CreateModel("dryers", db_conn)
+            
+            # Save models to disk
+            PredictionModel.save_model(washerModel, "washers")
+            PredictionModel.save_model(dryerModel, "dryers")
+            print("Models trained and saved successfully")
+        except Exception as e:
+            print(f"Training failed: {e}")
+            logger.exception("Model training failed")
+            raise
 
 def should_retrain():
     """Check if it's time to retrain (between midnight and 2 AM)"""
@@ -86,12 +99,21 @@ def schedule_retraining():
 
 # Initialize models on startup (async to not block startup)
 def async_model_init():
-    load_models()
-    schedule_retraining()
+    try:
+        load_models()
+        schedule_retraining()
+        print("Model initialization completed successfully")
+    except Exception as e:
+        print(f"Model initialization failed: {e}")
+        logger.exception("Failed to initialize models")
 
 # Start model initialization in background
 init_thread = threading.Thread(target=async_model_init, daemon=True)
 init_thread.start()
+
+# Wait a moment for models to potentially load (for Cloud Run cold starts)
+import time
+time.sleep(2)
 
 # creating a Flask app 
 app = Flask(__name__)
@@ -355,14 +377,100 @@ def contribute():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'models_ready': washerModel is not None and dryerModel is not None,
-        'db_connected': db is not None,
+    """Comprehensive health check endpoint"""
+    db_conn = initialize_db()
+    
+    # Check database connectivity
+    db_healthy = False
+    try:
+        with db_conn.connect() as conn:
+            conn.execute(sqlalchemy.text("SELECT 1")).fetchone()
+        db_healthy = True
+    except Exception as e:
+        logger.exception("Database health check failed")
+    
+    # Check model status
+    models_ready = washerModel is not None and dryerModel is not None
+    
+    status = 'healthy' if (db_healthy and models_ready) else 'degraded'
+    if not db_healthy and not models_ready:
+        status = 'critical'
+    
+    response_data = {
+        'status': status,
+        'models_ready': models_ready,
+        'washer_model_loaded': washerModel is not None,
+        'dryer_model_loaded': dryerModel is not None,
+        'db_connected': db_healthy,
         'prediction_intervals': '10 minutes',
-        'features': ['10-min intervals', 'statistics', 'analytics', 'trends']
+        'features': ['10-min intervals', 'statistics', 'analytics', 'trends'],
+        'timestamp': datetime.now(tz).isoformat()
+    }
+    
+    # Return appropriate status code
+    if status == 'critical':
+        return jsonify(response_data), 503
+    elif status == 'degraded':
+        return jsonify(response_data), 202  # Accepted but not complete
+    else:
+        return jsonify(response_data), 200
+
+@app.route('/model-status', methods=['GET'])
+def model_status():
+    """Detailed model status for debugging"""
+    return jsonify({
+        'washer_model': {
+            'loaded': washerModel is not None,
+            'type': type(washerModel).__name__ if washerModel else None,
+            'features': washerModel.n_features_in_ if washerModel else None
+        },
+        'dryer_model': {
+            'loaded': dryerModel is not None,
+            'type': type(dryerModel).__name__ if dryerModel else None,
+            'features': dryerModel.n_features_in_ if dryerModel else None
+        },
+        'database': {
+            'connected': db is not None
+        },
+        'initialization': {
+            'thread_alive': init_thread.is_alive() if 'init_thread' in globals() else False
+        }
     })
+
+@app.route('/startup-check', methods=['GET'])
+def startup_check():
+    """Quick endpoint to check if app is starting up properly"""
+    try:
+        # Check if we can import our modules
+        import PredictionModel
+        import SQLConnect
+        
+        # Check basic database connection
+        db_test = False
+        try:
+            test_db = initialize_db()
+            db_test = test_db is not None
+        except Exception as e:
+            print(f"Database connection test failed: {e}")
+        
+        return jsonify({
+            'app_started': True,
+            'imports_working': True,
+            'database_connection': db_test,
+            'models': {
+                'washer_loaded': washerModel is not None,
+                'dryer_loaded': dryerModel is not None
+            },
+            'init_thread_alive': init_thread.is_alive() if 'init_thread' in globals() else False,
+            'timestamp': datetime.now(tz).isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'app_started': True,
+            'error': str(e),
+            'imports_working': False,
+            'timestamp': datetime.now(tz).isoformat()
+        }), 500
 
 # driver function 
 if __name__ == '__main__': 
