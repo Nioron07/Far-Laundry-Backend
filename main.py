@@ -4,7 +4,7 @@ from flask import Flask, jsonify, request, make_response
 import flask_cors
 import PredictionModel
 import SQLConnect
-from datetime import datetime, time
+from datetime import datetime, time as dt_time
 import threading
 import pytz
 import logging
@@ -197,6 +197,126 @@ def optimumTime(hall, startDay, endDay, step):
             "Optimum Time": PredictionModel.GetOptimumTime(washerModel, dryerModel, hall, start_date, end_date, step)
         })
 
+# New endpoint for detailed day statistics
+@app.route('/dayStats/<int:hall>/dayOfMonth/<int:dayOfMonth>/month/<int:month>', methods=['GET']) 
+def dayStats(hall, dayOfMonth, month):
+    if not (washerModel and dryerModel):
+        return jsonify({'error': 'Models not ready'}), 503
+        
+    db_conn = initialize_db()
+    
+    try:
+        target_date = datetime(datetime.now(tz).year, month, dayOfMonth)
+    except ValueError:
+        return jsonify({'error': 'Invalid date'}), 400
+    
+    with model_lock:
+        washer_data = PredictionModel.GetWholeDayPrediction(washerModel, hall, target_date, db_conn, 0)
+        dryer_data = PredictionModel.GetWholeDayPrediction(dryerModel, hall, target_date, db_conn, 1)
+        
+        return jsonify({
+            'date': target_date.strftime('%Y-%m-%d'),
+            'hall': hall,
+            'washers': {
+                'predictions': washer_data['Predictions'],
+                'statistics': washer_data['Statistics'],
+                'high': washer_data['High'],
+                'low': washer_data['Low']
+            },
+            'dryers': {
+                'predictions': dryer_data['Predictions'],
+                'statistics': dryer_data['Statistics'],
+                'high': dryer_data['High'],
+                'low': dryer_data['Low']
+            }
+        })
+
+# New endpoint for detailed week statistics
+@app.route('/weekStats/<int:hall>', methods=['GET'])
+def weekStats(hall):
+    if not (washerModel and dryerModel):
+        return jsonify({'error': 'Models not ready'}), 503
+        
+    db_conn = initialize_db()
+    
+    with model_lock:
+        washer_data = PredictionModel.GetWholeWeekPrediction(washerModel, hall, db_conn, 0)
+        dryer_data = PredictionModel.GetWholeWeekPrediction(dryerModel, hall, db_conn, 1)
+        
+        return jsonify({
+            'hall': hall,
+            'current_time': PredictionModel.getLabel(),
+            'washers': {
+                'predictions': {k: v for k, v in washer_data.items() if k not in ['Low', 'High', 'Statistics']},
+                'statistics': washer_data.get('Statistics', {}),
+                'high': washer_data.get('High', 'N/A'),
+                'low': washer_data.get('Low', 'N/A')
+            },
+            'dryers': {
+                'predictions': {k: v for k, v in dryer_data.items() if k not in ['Low', 'High', 'Statistics']},
+                'statistics': dryer_data.get('Statistics', {}),
+                'high': dryer_data.get('High', 'N/A'),
+                'low': dryer_data.get('Low', 'N/A')
+            }
+        })
+
+# New endpoint for real-time analytics
+@app.route('/analytics/<int:hall>', methods=['GET'])
+def analytics(hall):
+    """Provides real-time analytics and trends"""
+    if not (washerModel and dryerModel):
+        return jsonify({'error': 'Models not ready'}), 503
+        
+    db_conn = initialize_db()
+    
+    try:
+        # Get current week data
+        with model_lock:
+            washer_week = PredictionModel.GetWholeWeekPrediction(washerModel, hall, db_conn, 0)
+            dryer_week = PredictionModel.GetWholeWeekPrediction(dryerModel, hall, db_conn, 1)
+        
+        # Calculate trends and patterns
+        current_time = datetime.now(tz)
+        current_day = current_time.strftime('%A')[:3]  # Get short day name
+        current_hour = current_time.hour
+        
+        # Find best times for today
+        today_washer_data = {k: v for k, v in washer_week.items() 
+                            if k.startswith(current_day) and k not in ['Low', 'High', 'Statistics']}
+        today_dryer_data = {k: v for k, v in dryer_week.items() 
+                           if k.startswith(current_day) and k not in ['Low', 'High', 'Statistics']}
+        
+        # Calculate combined availability for recommendations
+        combined_scores = {}
+        for washer_key in today_washer_data:
+            if washer_key in today_dryer_data:
+                combined_scores[washer_key] = today_washer_data[washer_key] + today_dryer_data[washer_key]
+        
+        # Sort by combined availability
+        best_times = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        return jsonify({
+            'hall': hall,
+            'current_time': current_time.strftime('%I:%M %p'),
+            'current_day': current_day,
+            'recommendations': {
+                'best_times_today': [{'time': time, 'score': score} for time, score in best_times],
+                'current_availability': {
+                    'washers': today_washer_data.get(f"{current_day} {current_time.strftime('%I:%M%p')}", 0),
+                    'dryers': today_dryer_data.get(f"{current_day} {current_time.strftime('%I:%M%p')}", 0)
+                },
+                'trends': {
+                    'washer_weekly_avg': washer_week.get('Statistics', {}).get('mean', 0),
+                    'dryer_weekly_avg': dryer_week.get('Statistics', {}).get('mean', 0),
+                    'peak_availability_time': washer_week.get('High', 'N/A'),
+                    'low_availability_time': washer_week.get('Low', 'N/A')
+                }
+            }
+        })
+    except Exception as e:
+        logger.exception(e)
+        return jsonify({'error': 'Analytics calculation failed'}), 500
+
 @app.route('/contribute', methods=['POST']) 
 def contribute():
     db_conn = initialize_db()
@@ -239,7 +359,9 @@ def health():
     return jsonify({
         'status': 'healthy',
         'models_ready': washerModel is not None and dryerModel is not None,
-        'db_connected': db is not None
+        'db_connected': db is not None,
+        'prediction_intervals': '10 minutes',
+        'features': ['10-min intervals', 'statistics', 'analytics', 'trends']
     })
 
 # driver function 
