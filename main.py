@@ -135,6 +135,8 @@ def schedule_retraining():
     scheduler_thread.start()
 
 def async_model_init():
+    global washerModel, dryerModel  # <-- Move global declaration to the top
+    
     try:
         print("=== STARTING MODEL INITIALIZATION ===")
         logger.info("Starting async model initialization")
@@ -156,7 +158,6 @@ def async_model_init():
         logger.exception("CRITICAL: Failed to initialize models")
         
         # Set global state to indicate failure
-        global washerModel, dryerModel
         washerModel = None
         dryerModel = None
 # Start model initialization in background
